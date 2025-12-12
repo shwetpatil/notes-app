@@ -16,6 +16,7 @@ Complete documentation for a production-ready full-stack notes application.
 ### Features
 - **[Features Guide](./FEATURES.md)** - Complete feature documentation
 - **[API Reference](./API.md)** - Backend API endpoints
+- **[Product Roadmap](./ROADMAP.md)** - Future features and timeline
 
 ### Development
 - **[Development Guide](./DEVELOPMENT.md)** - Workflows and best practices
