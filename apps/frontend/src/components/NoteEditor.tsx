@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { notesApi } from "@/lib/api";
 import { db, markNoteAsDirty } from "@/lib/db";
 import { Button, Input } from "@notes/ui-lib";
@@ -16,16 +18,24 @@ interface NoteEditorProps {
 export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [isMarkdown, setIsMarkdown] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (note) {
       setTitle(note.title);
       setContent(note.content);
+      setTags(note.tags || []);
+      setIsMarkdown(note.isMarkdown || false);
       setHasChanges(false);
     } else {
       setTitle("");
       setContent("");
+      setTags([]);
+      setIsMarkdown(false);
       setHasChanges(false);
     }
   }, [note]);
@@ -65,16 +75,69 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
     },
   });
 
+  const pinMutation = useMutation({
+    mutationFn: notesApi.togglePin,
+    onSuccess: async (response) => {
+      if (response.data) {
+        await db.notes.put({ ...response.data, isDirty: false });
+      }
+      onSave();
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: notesApi.toggleArchive,
+    onSuccess: async (response) => {
+      if (response.data) {
+        await db.notes.put({ ...response.data, isDirty: false });
+      }
+      onSave();
+      onClose();
+    },
+  });
+
   const handleSave = () => {
     if (!title.trim()) return;
 
     if (note) {
       updateMutation.mutate({
         id: note.id,
-        data: { title, content },
+        data: { title, content, tags, isMarkdown },
       });
     } else {
-      createMutation.mutate({ title, content });
+      createMutation.mutate({ 
+        title, 
+        content, 
+        tags, 
+        isMarkdown,
+        isPinned: false,
+        isArchived: false,
+      });
+    }
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+      setTags([...tags, tagInput.trim()]);
+      setTagInput("");
+      setHasChanges(true);
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter((tag) => tag !== tagToRemove));
+    setHasChanges(true);
+  };
+
+  const handleTogglePin = () => {
+    if (note) {
+      pinMutation.mutate(note.id);
+    }
+  };
+
+  const handleToggleArchive = () => {
+    if (note) {
+      archiveMutation.mutate(note.id);
     }
   };
 
@@ -88,20 +151,13 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
     setHasChanges(true);
   };
 
-  if (!note && title === "" && content === "") {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-gray-50">
-        <div className="text-center text-gray-500">
-          <p className="text-lg">Select a note or create a new one</p>
-        </div>
-      </div>
-    );
-  }
+  const isEmptyNewNote = !note && title === "" && content === "";
 
   return (
     <div className="flex flex-1 flex-col bg-white">
+      {/* Header */}
       <div className="border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <Input
             value={title}
             onChange={(e) => {
@@ -113,38 +169,129 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
           />
           <div className="ml-4 flex gap-2">
             {note && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleDelete}
-                isLoading={deleteMutation.isPending}
-              >
-                Delete
-              </Button>
+              <>
+                <Button
+                  variant={note.isPinned ? "primary" : "secondary"}
+                  size="sm"
+                  onClick={handleTogglePin}
+                  isLoading={pinMutation.isPending}
+                  title={note.isPinned ? "Unpin" : "Pin"}
+                >
+                  📌
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleToggleArchive}
+                  isLoading={archiveMutation.isPending}
+                  title={note.isArchived ? "Unarchive" : "Archive"}
+                >
+                  📦
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleDelete}
+                  isLoading={deleteMutation.isPending}
+                >
+                  Delete
+                </Button>
+              </>
             )}
             <Button
               variant="primary"
               size="sm"
               onClick={handleSave}
               isLoading={createMutation.isPending || updateMutation.isPending}
-              disabled={!hasChanges && !!note}
+              disabled={!title.trim() || (isEmptyNewNote && !hasChanges)}
             >
               {note ? "Save" : "Create"}
             </Button>
           </div>
         </div>
+
+        {/* Tags Input */}
+        <div className="mt-3">
+          <div className="flex gap-2">
+            <Input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddTag();
+                }
+              }}
+              placeholder="Add tags..."
+              className="flex-1"
+            />
+            <Button size="sm" onClick={handleAddTag} variant="secondary">
+              Add Tag
+            </Button>
+          </div>
+          {tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800"
+                >
+                  {tag}
+                  <button
+                    onClick={() => handleRemoveTag(tag)}
+                    className="hover:text-blue-600"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Markdown Toggle */}
+        <div className="mt-3 flex items-center gap-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={isMarkdown}
+              onChange={(e) => {
+                setIsMarkdown(e.target.checked);
+                handleChange();
+              }}
+              className="rounded"
+            />
+            <span className="text-sm text-gray-700">Markdown mode</span>
+          </label>
+          {isMarkdown && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowPreview(!showPreview)}
+            >
+              {showPreview ? "Edit" : "Preview"}
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* Content Editor */}
       <div className="flex-1 overflow-y-auto p-4">
-        <textarea
-          value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            handleChange();
-          }}
-          placeholder="Start typing..."
-          className="h-full w-full resize-none border-none p-0 focus:outline-none focus:ring-0"
-        />
+        {isMarkdown && showPreview ? (
+          <div className="prose max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+          </div>
+        ) : (
+          <textarea
+            value={content}
+            onChange={(e) => {
+              setContent(e.target.value);
+              handleChange();
+            }}
+            placeholder="Start typing..."
+            className="h-full w-full resize-none border-none p-0 focus:outline-none focus:ring-0"
+          />
+        )}
       </div>
 
       {note && (

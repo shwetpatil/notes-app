@@ -10,12 +10,16 @@ import { Button, Spinner } from "@notes/ui-lib";
 import { Sidebar } from "@/components/Sidebar";
 import { NotesList } from "@/components/NotesList";
 import { NoteEditor } from "@/components/NoteEditor";
+import { SearchBar } from "@/components/SearchBar";
 import type { Note } from "@notes/types";
 
 export default function NotesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   // Check auth
   const { data: authData, isLoading: authLoading } = useQuery({
@@ -30,8 +34,11 @@ export default function NotesPage() {
     isLoading: notesLoading,
     refetch,
   } = useQuery({
-    queryKey: ["notes"],
-    queryFn: notesApi.getAll,
+    queryKey: ["notes", searchQuery, showArchived],
+    queryFn: () => notesApi.getAll({ 
+      search: searchQuery || undefined, 
+      archived: showArchived 
+    }),
     enabled: !!authData?.success,
   });
 
@@ -74,31 +81,55 @@ export default function NotesPage() {
   }
 
   const notes = localNotes || [];
-  const selectedNote = notes.find((n) => n.id === selectedNoteId);
+  const selectedNote = selectedNoteId ? notes.find((n) => n.id === selectedNoteId) : null;
+
+  const handleCreateNote = () => {
+    setSelectedNoteId(null);
+    setIsCreatingNew(true);
+  };
+
+  const handleSelectNote = (id: string) => {
+    setSelectedNoteId(id);
+    setIsCreatingNew(false);
+  };
+
+  const handleSave = async () => {
+    await refetch();
+    setIsCreatingNew(false);
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar
-        user={authData.data.user}
+        user={authData?.data?.user}
         onLogout={() => logoutMutation.mutate()}
         onRefresh={() => refetch()}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        <NotesList
-          notes={notes}
-          selectedNoteId={selectedNoteId}
-          onSelectNote={setSelectedNoteId}
-          onCreateNote={() => setSelectedNoteId(null)}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <SearchBar
+          onSearch={setSearchQuery}
+          onToggleArchived={() => setShowArchived(!showArchived)}
+          showArchived={showArchived}
         />
 
-        <NoteEditor
-          note={selectedNote || null}
-          onSave={async () => {
-            await refetch();
-          }}
-          onClose={() => setSelectedNoteId(null)}
-        />
+        <div className="flex flex-1 overflow-hidden">
+          <NotesList
+            notes={notes}
+            selectedNoteId={selectedNoteId}
+            onSelectNote={handleSelectNote}
+            onCreateNote={handleCreateNote}
+          />
+
+          <NoteEditor
+            note={selectedNote || null}
+            onSave={handleSave}
+            onClose={() => {
+              setSelectedNoteId(null);
+              setIsCreatingNew(false);
+            }}
+          />
+        </div>
       </div>
     </div>
   );

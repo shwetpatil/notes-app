@@ -63,8 +63,14 @@ export const authApi = {
 // ============================================================================
 
 export const notesApi = {
-  getAll: async () => {
-    const response = await apiClient.get<ApiResponse<Note[]>>("/api/notes");
+  getAll: async (params?: { search?: string; tags?: string; archived?: boolean }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.tags) queryParams.append("tags", params.tags);
+    if (params?.archived !== undefined) queryParams.append("archived", String(params.archived));
+    
+    const url = `/api/notes${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    const response = await apiClient.get<ApiResponse<Note[]>>(url);
     return response.data;
   },
 
@@ -85,6 +91,16 @@ export const notesApi = {
 
   delete: async (id: string) => {
     const response = await apiClient.delete<ApiResponse>(`/api/notes/${id}`);
+    return response.data;
+  },
+
+  togglePin: async (id: string) => {
+    const response = await apiClient.patch<ApiResponse<Note>>(`/api/notes/${id}/pin`);
+    return response.data;
+  },
+
+  toggleArchive: async (id: string) => {
+    const response = await apiClient.patch<ApiResponse<Note>>(`/api/notes/${id}/archive`);
     return response.data;
   },
 };

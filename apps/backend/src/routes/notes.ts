@@ -12,10 +12,40 @@ router.use(requireAuth);
 router.get("/", async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
+    const { search, tags, archived } = req.query;
+
+    // Build where clause
+    const where: any = { userId };
+
+    // Filter by archived status
+    if (archived === "true") {
+      where.isArchived = true;
+    } else {
+      where.isArchived = false;
+    }
+
+    // Search in title and content
+    if (search && typeof search === "string") {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { content: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    // Filter by tags
+    if (tags && typeof tags === "string") {
+      const tagArray = tags.split(",").filter(Boolean);
+      if (tagArray.length > 0) {
+        where.tags = { hasSome: tagArray };
+      }
+    }
 
     const notes = await prisma.note.findMany({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
+      where,
+      orderBy: [
+        { isPinned: "desc" },
+        { updatedAt: "desc" },
+      ],
     });
 
     res.json({
@@ -171,6 +201,76 @@ router.delete("/:id", async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: "Failed to delete note",
+    });
+  }
+});
+
+// PATCH /api/notes/:id/pin - Toggle pin status
+router.patch("/:id/pin", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.user!.id;
+
+    const existingNote = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingNote) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found",
+      });
+    }
+
+    const note = await prisma.note.update({
+      where: { id },
+      data: { isPinned: !existingNote.isPinned },
+    });
+
+    res.json({
+      success: true,
+      data: note,
+    });
+  } catch (error) {
+    console.error("Pin note error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to pin note",
+    });
+  }
+});
+
+// PATCH /api/notes/:id/archive - Toggle archive status
+router.patch("/:id/archive", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.user!.id;
+
+    const existingNote = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingNote) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found",
+      });
+    }
+
+    const note = await prisma.note.update({
+      where: { id },
+      data: { isArchived: !existingNote.isArchived },
+    });
+
+    res.json({
+      success: true,
+      data: note,
+    });
+  } catch (error) {
+    console.error("Archive note error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to archive note",
     });
   }
 });
