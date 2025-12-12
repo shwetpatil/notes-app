@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { createNoteSchema, updateNoteSchema } from "@notes/types";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
+import { sanitizeMarkdown } from "../middleware/sanitize";
 
 const router = Router();
 
@@ -119,16 +120,20 @@ router.post("/", async (req: Request, res: Response) => {
     if (!parsed.success) {
       return res.status(400).json({
         success: false,
-        error: "Invalid input",
-        details: parsed.error.issues,
+        error: "Invalid note data",
       });
     }
 
+    // Sanitize content to prevent XSS
+    const sanitizedData = {
+      ...parsed.data,
+      title: parsed.data.title.substring(0, 255), // Enforce max length
+      content: sanitizeMarkdown(parsed.data.content),
+      userId,
+    };
+
     const note = await prisma.note.create({
-      data: {
-        ...parsed.data,
-        userId,
-      },
+      data: sanitizedData,
     });
 
     res.status(201).json({
@@ -154,8 +159,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (!parsed.success) {
       return res.status(400).json({
         success: false,
-        error: "Invalid input",
-        details: parsed.error.issues,
+        error: "Invalid note data",
       });
     }
 
@@ -171,9 +175,18 @@ router.patch("/:id", async (req: Request, res: Response) => {
       });
     }
 
+    // Sanitize content to prevent XSS
+    const sanitizedData: any = { ...parsed.data };
+    if (sanitizedData.title) {
+      sanitizedData.title = sanitizedData.title.substring(0, 255);
+    }
+    if (sanitizedData.content) {
+      sanitizedData.content = sanitizeMarkdown(sanitizedData.content);
+    }
+
     const note = await prisma.note.update({
       where: { id },
-      data: parsed.data,
+      data: sanitizedData,
     });
 
     res.json({

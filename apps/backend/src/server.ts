@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
+import mongoSanitize from "express-mongo-sanitize";
 import dotenv from "dotenv";
 import { authRouter } from "./routes/auth";
 import { notesRouter } from "./routes/notes";
@@ -18,8 +19,22 @@ const PORT = process.env.BACKEND_PORT || 3001;
 // Middleware
 // ============================================================================
 
-// Security
-app.use(helmet());
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+}));
 
 // CORS
 app.use(
@@ -29,17 +44,27 @@ app.use(
   })
 );
 
-// Rate limiting
+// General rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
-  message: "Too many requests from this IP, please try again later.",
+  message: "Too many requests, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
-// Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing with limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Sanitize user input to prevent NoSQL injection
+app.use(mongoSanitize({
+  replaceWith: '_',
+  onSanitize: ({ req, key }) => {
+    console.warn(`Sanitized request: ${key}`);
+  },
+}));
 
 // Session configuration
 app.use(
@@ -47,9 +72,11 @@ app.use(
     secret: process.env.SESSION_SECRET || "your-secret-key-change-this",
     resave: false,
     saveUninitialized: false,
+    name: 'sessionId', // Don't use default 'connect.sid'
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
+      sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
     // Optional: Redis store can be enabled here

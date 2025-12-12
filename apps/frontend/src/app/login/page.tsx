@@ -11,6 +11,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
 
   const loginMutation = useMutation({
@@ -26,7 +27,7 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    loginMutation.mutate({ email, password });
+    loginMutation.mutate({ email, password, rememberMe });
   };
 
   return (
@@ -55,6 +56,19 @@ export default function LoginPage() {
             placeholder="••••••••"
             required
           />
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+            />
+            <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700 cursor-pointer select-none">
+              Remember me for 30 days
+            </label>
+          </div>
 
           {error && (
             <div className="rounded-md bg-red-50 p-3">
