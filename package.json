@@ -1,0 +1,28 @@
+{
+  "name": "notes-application",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack notes application with Next.js and Express",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @notes/frontend dev\" \"pnpm --filter @notes/backend dev\"",
+    "dev:frontend": "pnpm --filter @notes/frontend dev",
+    "dev:backend": "pnpm --filter @notes/backend dev",
+    "build": "pnpm --filter @notes/types build && pnpm --filter @notes/ui-lib build && pnpm --filter @notes/backend build && pnpm --filter @notes/frontend build",
+    "build:frontend": "pnpm --filter @notes/frontend build",
+    "build:backend": "pnpm --filter @notes/backend build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
