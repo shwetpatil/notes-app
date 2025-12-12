@@ -7,34 +7,36 @@ import Link from "next/link";
 import { authApi } from "@/lib/api";
 import { Button, Input, Card } from "@notes/ui-lib";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const loginMutation = useMutation({
-    mutationFn: authApi.login,
+  const registerMutation = useMutation({
+    mutationFn: authApi.register,
     onSuccess: () => {
       router.push("/notes");
     },
     onError: (err: any) => {
-      setError(err.response?.data?.error || "Login failed");
+      console.error("Registration error:", err);
+      const errorMessage = err.response?.data?.error || err.message || "Registration failed";
+      setError(errorMessage);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    loginMutation.mutate({ email, password });
+    registerMutation.mutate({ email, password });
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome to Notes</h1>
-          <p className="mt-2 text-sm text-gray-600">Sign in to access your notes</p>
+          <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
+          <p className="mt-2 text-sm text-gray-600">Sign up to start taking notes</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -54,6 +56,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             required
+            minLength={6}
           />
 
           {error && (
@@ -66,17 +69,17 @@ export default function LoginPage() {
             type="submit"
             variant="primary"
             className="w-full"
-            isLoading={loginMutation.isPending}
+            isLoading={registerMutation.isPending}
           >
-            Sign In
+            Create Account
           </Button>
         </form>
 
         <div className="mt-4 text-center text-sm text-gray-600">
           <p>
-            Don't have an account?{" "}
-            <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-              Sign up
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              Sign in
             </Link>
           </p>
         </div>

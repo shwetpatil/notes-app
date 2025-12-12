@@ -11,11 +11,34 @@ export const apiClient = axios.create({
   },
 });
 
+// Add response interceptor for better error logging
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error("API Error:", {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    return Promise.reject(error);
+  }
+);
+
 // ============================================================================
 // Auth API
 // ============================================================================
 
 export const authApi = {
+  register: async (data: LoginInput) => {
+    const response = await apiClient.post<ApiResponse<{ user: any; message: string }>>(
+      "/api/auth/register",
+      data
+    );
+    return response.data;
+  },
+
   login: async (data: LoginInput) => {
     const response = await apiClient.post<ApiResponse<{ user: any; message: string }>>(
       "/api/auth/login",

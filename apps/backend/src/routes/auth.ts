@@ -4,7 +4,70 @@ import { prisma } from "../lib/prisma";
 
 const router = Router();
 
-// Stub login - in production, use proper password hashing (bcrypt)
+// Register new user
+router.post("/register", async (req: Request, res: Response) => {
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid input",
+        details: parsed.error.issues,
+      });
+    }
+
+    const { email, password } = parsed.data;
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        error: "User already exists",
+      });
+    }
+
+    // Create new user (in production, hash the password!)
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password, // In production, use bcrypt.hash()
+        name: email.split("@")[0],
+      },
+    });
+
+    // Set session
+    req.session.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    };
+
+    res.status(201).json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+        message: "Account created successfully",
+      },
+    });
+  } catch (error) {
+    console.error("Register error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to register",
+    });
+  }
+});
+
+// Login - authenticate existing user
 router.post("/login", async (req: Request, res: Response) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
@@ -19,19 +82,23 @@ router.post("/login", async (req: Request, res: Response) => {
 
     const { email, password } = parsed.data;
 
-    // Find or create user (stub auth)
-    let user = await prisma.user.findUnique({
+    // Find user
+    const user = await prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      // Auto-create user for demo purposes
-      user = await prisma.user.create({
-        data: {
-          email,
-          password, // In production, hash this!
-          name: email.split("@")[0],
-        },
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password",
+      });
+    }
+
+    // Check password (in production, use bcrypt.compare())
+    if (user.password !== password) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password",
       });
     }
 
