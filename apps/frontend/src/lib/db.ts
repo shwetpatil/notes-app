@@ -16,6 +16,9 @@ export class NotesDatabase extends Dexie {
     this.version(2).stores({
       notes: "id, userId, updatedAt, isDirty, isPinned, isArchived, *tags",
     });
+    this.version(3).stores({
+      notes: "id, userId, updatedAt, isDirty, isPinned, isFavorite, isArchived, isTrashed, *tags",
+    });
   }
 }
 

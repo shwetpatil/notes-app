@@ -28,9 +28,13 @@ export interface Note {
   title: string;
   content: string;
   tags: string[];
+  color?: string;
   isPinned: boolean;
+  isFavorite: boolean;
   isArchived: boolean;
   isMarkdown: boolean;
+  isTrashed: boolean;
+  trashedAt?: Date;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -41,18 +45,24 @@ export const createNoteSchema = z.object({
   title: z.string().min(1, "Title is required").max(255, "Title too long"),
   content: z.string(),
   tags: z.array(z.string()).optional().default([]),
+  color: z.string().optional(),
   isPinned: z.boolean().optional().default(false),
+  isFavorite: z.boolean().optional().default(false),
   isArchived: z.boolean().optional().default(false),
   isMarkdown: z.boolean().optional().default(false),
+  isTrashed: z.boolean().optional().default(false),
 });
 
 export const updateNoteSchema = z.object({
   title: z.string().min(1, "Title is required").max(255, "Title too long").optional(),
   content: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  color: z.string().optional(),
   isPinned: z.boolean().optional(),
+  isFavorite: z.boolean().optional(),
   isArchived: z.boolean().optional(),
   isMarkdown: z.boolean().optional(),
+  isTrashed: z.boolean().optional(),
 });
 
 export type CreateNoteInput = z.infer<typeof createNoteSchema>;

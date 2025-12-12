@@ -12,16 +12,23 @@ router.use(requireAuth);
 router.get("/", async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
-    const { search, tags, archived } = req.query;
+    const { search, tags, archived, trashed, sortBy = "updatedAt", order = "desc" } = req.query;
 
     // Build where clause
     const where: any = { userId };
 
-    // Filter by archived status
-    if (archived === "true") {
-      where.isArchived = true;
+    // Filter by trash status
+    if (trashed === "true") {
+      where.isTrashed = true;
     } else {
-      where.isArchived = false;
+      where.isTrashed = false;
+      
+      // Filter by archived status (only for non-trashed)
+      if (archived === "true") {
+        where.isArchived = true;
+      } else {
+        where.isArchived = false;
+      }
     }
 
     // Search in title and content
@@ -40,12 +47,24 @@ router.get("/", async (req: Request, res: Response) => {
       }
     }
 
+    // Build orderBy
+    const orderBy: any[] = [];
+    
+    // Favorites and pinned always on top
+    if (trashed !== "true") {
+      orderBy.push({ isFavorite: "desc" });
+      orderBy.push({ isPinned: "desc" });
+    }
+    
+    // Then sort by user preference
+    const validSortFields = ["updatedAt", "createdAt", "title"];
+    const sortField = validSortFields.includes(sortBy as string) ? sortBy : "updatedAt";
+    const sortOrder = order === "asc" ? "asc" : "desc";
+    orderBy.push({ [sortField as string]: sortOrder });
+
     const notes = await prisma.note.findMany({
       where,
-      orderBy: [
-        { isPinned: "desc" },
-        { updatedAt: "desc" },
-      ],
+      orderBy,
     });
 
     res.json({
@@ -271,6 +290,151 @@ router.patch("/:id/archive", async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: "Failed to archive note",
+    });
+  }
+});
+
+// PATCH /api/notes/:id/favorite - Toggle favorite status
+router.patch("/:id/favorite", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.user!.id;
+
+    const existingNote = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingNote) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found",
+      });
+    }
+
+    const note = await prisma.note.update({
+      where: { id },
+      data: { isFavorite: !existingNote.isFavorite },
+    });
+
+    res.json({
+      success: true,
+      data: note,
+    });
+  } catch (error) {
+    console.error("Favorite note error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to favorite note",
+    });
+  }
+});
+
+// PATCH /api/notes/:id/trash - Move to trash
+router.patch("/:id/trash", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.user!.id;
+
+    const existingNote = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingNote) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found",
+      });
+    }
+
+    const note = await prisma.note.update({
+      where: { id },
+      data: { 
+        isTrashed: true,
+        trashedAt: new Date(),
+      },
+    });
+
+    res.json({
+      success: true,
+      data: note,
+    });
+  } catch (error) {
+    console.error("Trash note error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to trash note",
+    });
+  }
+});
+
+// PATCH /api/notes/:id/restore - Restore from trash
+router.patch("/:id/restore", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.user!.id;
+
+    const existingNote = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existingNote) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found",
+      });
+    }
+
+    const note = await prisma.note.update({
+      where: { id },
+      data: { 
+        isTrashed: false,
+        trashedAt: null,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: note,
+    });
+  } catch (error) {
+    console.error("Restore note error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to restore note",
+    });
+  }
+});
+
+// DELETE /api/notes/:id/permanent - Permanently delete
+router.delete("/:id/permanent", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.user!.id;
+
+    const existingNote = await prisma.note.findFirst({
+      where: { id, userId, isTrashed: true },
+    });
+
+    if (!existingNote) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found in trash",
+      });
+    }
+
+    await prisma.note.delete({
+      where: { id },
+    });
+
+    res.json({
+      success: true,
+      message: "Note permanently deleted",
+    });
+  } catch (error) {
+    console.error("Permanent delete error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to delete note",
     });
   }
 });

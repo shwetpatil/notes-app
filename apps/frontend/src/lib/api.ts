@@ -63,11 +63,14 @@ export const authApi = {
 // ============================================================================
 
 export const notesApi = {
-  getAll: async (params?: { search?: string; tags?: string; archived?: boolean }) => {
+  getAll: async (params?: { search?: string; tags?: string; archived?: boolean; trashed?: boolean; sortBy?: string; order?: string }) => {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append("search", params.search);
     if (params?.tags) queryParams.append("tags", params.tags);
     if (params?.archived !== undefined) queryParams.append("archived", String(params.archived));
+    if (params?.trashed !== undefined) queryParams.append("trashed", String(params.trashed));
+    if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params?.order) queryParams.append("order", params.order);
     
     const url = `/api/notes${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
     const response = await apiClient.get<ApiResponse<Note[]>>(url);
@@ -101,6 +104,26 @@ export const notesApi = {
 
   toggleArchive: async (id: string) => {
     const response = await apiClient.patch<ApiResponse<Note>>(`/api/notes/${id}/archive`);
+    return response.data;
+  },
+
+  toggleFavorite: async (id: string) => {
+    const response = await apiClient.patch<ApiResponse<Note>>(`/api/notes/${id}/favorite`);
+    return response.data;
+  },
+
+  moveToTrash: async (id: string) => {
+    const response = await apiClient.patch<ApiResponse<Note>>(`/api/notes/${id}/trash`);
+    return response.data;
+  },
+
+  restoreFromTrash: async (id: string) => {
+    const response = await apiClient.patch<ApiResponse<Note>>(`/api/notes/${id}/restore`);
+    return response.data;
+  },
+
+  permanentDelete: async (id: string) => {
+    const response = await apiClient.delete<ApiResponse>(`/api/notes/${id}/permanent`);
     return response.data;
   },
 };

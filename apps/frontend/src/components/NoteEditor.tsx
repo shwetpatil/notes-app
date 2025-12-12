@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import { notesApi } from "@/lib/api";
 import { db, markNoteAsDirty } from "@/lib/db";
 import { Button, Input } from "@notes/ui-lib";
+import { ColorPicker } from "./ColorPicker";
 import type { Note } from "@notes/types";
 
 interface NoteEditorProps {
@@ -20,6 +21,7 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [color, setColor] = useState<string | undefined>(undefined);
   const [isMarkdown, setIsMarkdown] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -29,12 +31,14 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
       setTitle(note.title);
       setContent(note.content);
       setTags(note.tags || []);
+      setColor(note.color);
       setIsMarkdown(note.isMarkdown || false);
       setHasChanges(false);
     } else {
       setTitle("");
       setContent("");
       setTags([]);
+      setColor(undefined);
       setIsMarkdown(false);
       setHasChanges(false);
     }
@@ -61,6 +65,48 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
       }
       onSave();
       setHasChanges(false);
+    },
+  });
+
+  const favoriteMutation = useMutation({
+    mutationFn: notesApi.toggleFavorite,
+    onSuccess: async (response) => {
+      if (response.data) {
+        await db.notes.put({ ...response.data, isDirty: false });
+      }
+      onSave();
+    },
+  });
+
+  const trashMutation = useMutation({
+    mutationFn: notesApi.moveToTrash,
+    onSuccess: async (response) => {
+      if (response.data) {
+        await db.notes.put({ ...response.data, isDirty: false });
+      }
+      onSave();
+      onClose();
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: notesApi.restoreFromTrash,
+    onSuccess: async (response) => {
+      if (response.data) {
+        await db.notes.put({ ...response.data, isDirty: false });
+      }
+      onSave();
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: notesApi.permanentDelete,
+    onSuccess: async () => {
+      if (note) {
+        await db.notes.delete(note.id);
+      }
+      onSave();
+      onClose();
     },
   });
 
@@ -102,7 +148,7 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
     if (note) {
       updateMutation.mutate({
         id: note.id,
-        data: { title, content, tags, isMarkdown },
+        data: { title, content, tags, isMarkdown, color },
       });
     } else {
       createMutation.mutate({ 
@@ -111,7 +157,10 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
         tags, 
         isMarkdown,
         isPinned: false,
+        isFavorite: false,
         isArchived: false,
+        isTrashed: false,
+        color,
       });
     }
   };
@@ -141,9 +190,29 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
     }
   };
 
+  const handleToggleFavorite = () => {
+    if (note) {
+      favoriteMutation.mutate(note.id);
+    }
+  };
+
+  const handleMoveToTrash = () => {
+    if (note) {
+      trashMutation.mutate(note.id);
+    }
+  };
+
+  const handleRestore = () => {
+    if (note) {
+      restoreMutation.mutate(note.id);
+    }
+  };
+
   const handleDelete = () => {
-    if (note && confirm("Are you sure you want to delete this note?")) {
-      deleteMutation.mutate(note.id);
+    if (note && note.isTrashed && confirm("Permanently delete this note? This cannot be undone.")) {
+      permanentDeleteMutation.mutate(note.id);
+    } else if (note && !note.isTrashed) {
+      handleMoveToTrash();
     }
   };
 
@@ -154,9 +223,9 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
   const isEmptyNewNote = !note && title === "" && content === "";
 
   return (
-    <div className="flex flex-1 flex-col bg-white">
+    <div className="flex flex-1 flex-col bg-white dark:bg-gray-900">
       {/* Header */}
-      <div className="border-b border-gray-200 p-4">
+      <div className="border-b border-gray-200 dark:border-gray-700 p-4">
         <div className="mb-3 flex items-center justify-between">
           <Input
             value={title}
@@ -168,8 +237,37 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
             className="text-xl font-semibold"
           />
           <div className="ml-4 flex gap-2">
-            {note && (
+            {note && note.isTrashed && (
               <>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleRestore}
+                  isLoading={restoreMutation.isPending}
+                >
+                  ↩️ Restore
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleDelete}
+                  isLoading={permanentDeleteMutation.isPending}
+                >
+                  🗑️ Delete Forever
+                </Button>
+              </>
+            )}
+            {note && !note.isTrashed && (
+              <>
+                <Button
+                  variant={note.isFavorite ? "primary" : "secondary"}
+                  size="sm"
+                  onClick={handleToggleFavorite}
+                  isLoading={favoriteMutation.isPending}
+                  title={note.isFavorite ? "Unfavorite" : "Favorite"}
+                >
+                  ⭐
+                </Button>
                 <Button
                   variant={note.isPinned ? "primary" : "secondary"}
                   size="sm"
@@ -189,10 +287,11 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
                   📦
                 </Button>
                 <Button
-                  variant="danger"
+                  variant="secondary"
                   size="sm"
                   onClick={handleDelete}
-                  isLoading={deleteMutation.isPending}
+                  isLoading={trashMutation.isPending}
+                  title="Move to Trash"
                 >
                   Delete
                 </Button>
@@ -208,6 +307,20 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
               {note ? "Save" : "Create"}
             </Button>
           </div>
+        </div>
+
+        {/* Color Picker */}
+        <div className="mt-3">
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Note Color
+          </label>
+          <ColorPicker
+            value={color}
+            onChange={(newColor) => {
+              setColor(newColor);
+              handleChange();
+            }}
+          />
         </div>
 
         {/* Tags Input */}

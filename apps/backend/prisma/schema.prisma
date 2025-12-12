@@ -8,32 +8,39 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  notes     Note[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  name        String
+  notes       Note[]
+  preferences Json?    @default("{\"theme\":\"light\",\"sortBy\":\"updatedAt\",\"viewMode\":\"list\"}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([email])
 }
 
 model Note {
-  id         String   @id @default(cuid())
-  title      String   @db.VarChar(255)
-  content    String   @db.Text
-  tags       String[] @default([])
-  isPinned   Boolean  @default(false)
-  isArchived Boolean  @default(false)
-  isMarkdown Boolean  @default(false)
+  id         String    @id @default(cuid())
+  title      String    @db.VarChar(255)
+  content    String    @db.Text
+  tags       String[]  @default([])
+  color      String?   @db.VarChar(20)
+  isPinned   Boolean   @default(false)
+  isFavorite Boolean   @default(false)
+  isArchived Boolean   @default(false)
+  isMarkdown Boolean   @default(false)
+  isTrashed  Boolean   @default(false)
+  trashedAt  DateTime?
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([userId])
   @@index([updatedAt])
   @@index([isPinned])
+  @@index([isFavorite])
   @@index([isArchived])
+  @@index([isTrashed])
 }

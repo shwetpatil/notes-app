@@ -20,6 +20,10 @@ export default function NotesPage() {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [showTrashed, setShowTrashed] = useState(false);
+  const [sortBy, setSortBy] = useState<"updatedAt" | "createdAt" | "title">("updatedAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Check auth
   const { data: authData, isLoading: authLoading } = useQuery({
@@ -34,10 +38,13 @@ export default function NotesPage() {
     isLoading: notesLoading,
     refetch,
   } = useQuery({
-    queryKey: ["notes", searchQuery, showArchived],
+    queryKey: ["notes", searchQuery, showArchived, showTrashed, sortBy, sortOrder],
     queryFn: () => notesApi.getAll({ 
       search: searchQuery || undefined, 
-      archived: showArchived 
+      archived: showArchived,
+      trashed: showTrashed,
+      sortBy,
+      order: sortOrder,
     }),
     enabled: !!authData?.success,
   });
@@ -81,6 +88,23 @@ export default function NotesPage() {
   }
 
   const notes = localNotes || [];
+  
+  // Apply client-side filters
+  let filteredNotes = notes.filter(note => {
+    // Filter by trashed status
+    if (showTrashed && !note.isTrashed) return false;
+    if (!showTrashed && note.isTrashed) return false;
+    
+    // Filter by archived status
+    if (showArchived && !note.isArchived) return false;
+    if (!showArchived && note.isArchived) return false;
+    
+    // Filter by favorites
+    if (showFavorites && !note.isFavorite) return false;
+    
+    return true;
+  });
+  
   const selectedNote = selectedNoteId ? notes.find((n) => n.id === selectedNoteId) : null;
 
   const handleCreateNote = () => {
@@ -98,8 +122,13 @@ export default function NotesPage() {
     setIsCreatingNew(false);
   };
 
+  const handleSortChange = (sortByParam: string, orderParam: string) => {
+    setSortBy(sortByParam as "updatedAt" | "createdAt" | "title");
+    setSortOrder(orderParam as "asc" | "desc");
+  };
+
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-800">
       <Sidebar
         user={authData?.data?.user}
         onLogout={() => logoutMutation.mutate()}
@@ -111,11 +140,18 @@ export default function NotesPage() {
           onSearch={setSearchQuery}
           onToggleArchived={() => setShowArchived(!showArchived)}
           showArchived={showArchived}
+          onToggleFavorites={() => setShowFavorites(!showFavorites)}
+          showFavorites={showFavorites}
+          onToggleTrashed={() => setShowTrashed(!showTrashed)}
+          showTrashed={showTrashed}
+          onSortChange={handleSortChange}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
         />
 
         <div className="flex flex-1 overflow-hidden">
           <NotesList
-            notes={notes}
+            notes={filteredNotes}
             selectedNoteId={selectedNoteId}
             onSelectNote={handleSelectNote}
             onCreateNote={handleCreateNote}
