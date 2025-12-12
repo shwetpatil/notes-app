@@ -1,333 +1,933 @@
-# Security Implementation Guide 🔐
+# Security Documentation
 
-## Overview
-This document outlines the comprehensive security measures implemented in the notes application to protect against common vulnerabilities and attacks.
+Comprehensive security implementation and best practices for the notes application.
+
+**Last Updated**: December 12, 2025  
+**Security Review Status**: ✅ Enhanced (December 2025)
 
 ---
 
-## ✅ Implemented Security Features
+## Security Overview
 
-### 1. **Password Security** (CRITICAL)
+### Security Posture
 
-#### Bcrypt Password Hashing
-- **Implementation**: All passwords are hashed using bcrypt with 12 salt rounds
-- **Location**: `apps/backend/src/routes/auth.ts`
-- **Protection**: Even if the database is compromised, passwords remain secure
-- **Salt Rounds**: 12 (recommended for 2025, provides ~2^12 iterations)
+The application implements **defense-in-depth** security with multiple protection layers:
 
-```typescript
-const SALT_ROUNDS = 12;
-const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+```
+┌─────────────────────────────────────────┐
+│  1. Network Security                    │
+│     - HTTPS/TLS                         │
+│     - Security Headers                  │
+│     - CORS Policy                       │
+└─────────────────────────────────────────┘
+            ↓
+┌─────────────────────────────────────────┐
+│  2. Application Security                │
+│     - Authentication                    │
+│     - Session Management                │
+│     - Rate Limiting                     │
+└─────────────────────────────────────────┘
+            ↓
+┌─────────────────────────────────────────┐
+│  3. Data Security                       │
+│     - Input Validation                  │
+│     - XSS Protection                    │
+│     - SQL Injection Prevention          │
+└─────────────────────────────────────────┘
+            ↓
+┌─────────────────────────────────────────┐
+│  4. Infrastructure Security             │
+│     - Database Security                 │
+│     - Secure Deployment                 │
+│     - Monitoring & Logging              │
+└─────────────────────────────────────────┘
 ```
 
-**What it prevents**: Password theft, rainbow table attacks, brute force password cracking
-
 ---
 
-### 2. **Account Lockout Mechanism** (HIGH)
+## 🔐 Authentication & Authorization
 
-#### Failed Login Attempt Tracking
-- **Max Attempts**: 5 failed login attempts
-- **Lockout Duration**: 15 minutes
-- **Database Fields**: `failedLoginAttempts`, `accountLockedUntil`, `lastLoginAt`
-- **Auto-reset**: Counter resets on successful login
+### Password Security
 
-**What it prevents**: Brute force attacks, credential stuffing
+**Implementation**: Bcrypt hashing with salt rounds
 
----
-
-### 3. **Rate Limiting** (HIGH)
-
-#### Global Rate Limiter
-- **Limit**: 100 requests per 15 minutes per IP
-- **Applies to**: All API endpoints
-
-#### Auth-Specific Rate Limiter
-- **Limit**: 5 requests per 15 minutes per IP
-- **Applies to**: `/api/auth/register` and `/api/auth/login`
-- **Skip on success**: Successful requests don't count toward limit
+**Code**: `apps/backend/src/routes/auth.ts`
 
 ```typescript
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  skipSuccessfulRequests: true,
-});
+import bcrypt from 'bcrypt';
+
+// Registration - Hash password
+const hashedPassword = await bcrypt.hash(password, 12);
+
+// Login - Verify password
+const validPassword = await bcrypt.compare(password, user.password);
 ```
 
-**What it prevents**: DDoS attacks, automated brute force attempts, API abuse
+**Security Features**:
+- ✅ **Salt rounds**: 12 (industry standard)
+- ✅ **No plaintext storage**: Passwords always hashed
+- ✅ **One-way hashing**: Cannot reverse to plaintext
+- ✅ **Timing-safe comparison**: Prevents timing attacks
+
+**Password Requirements**:
+- Minimum 8 characters
+- No maximum (Bcrypt handles up to 72 bytes)
+- No complexity requirements (encourages passphrases)
+
+**Recommendations for users**:
+- Use unique passwords (password manager)
+- Minimum 12+ characters
+- Mix of letters, numbers, symbols
 
 ---
 
-### 4. **Input Sanitization & XSS Protection** (HIGH)
+### Session Management
 
-#### XSS Sanitization
-- **Library**: xss package
-- **Implementation**: Custom sanitization middleware
-- **Location**: `apps/backend/src/middleware/sanitize.ts`
+**Implementation**: express-session with secure configuration
 
-#### Sanitization Strategies:
-1. **Generic Input**: Strips all HTML tags
-2. **Markdown Content**: Allows safe markdown/HTML tags only
-3. **Title Length**: Enforced 255 character limit
-
-**Allowed HTML in Markdown**:
-- Formatting: `<strong>`, `<em>`, `<u>`, `<code>`, `<pre>`
-- Structure: `<p>`, `<br>`, `<h1-h6>`, `<ul>`, `<ol>`, `<li>`
-- Links/Images: `<a>` (href, title), `<img>` (src, alt, title)
-
-**Blocked**: `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, inline styles
-
-**What it prevents**: Cross-Site Scripting (XSS), HTML injection, malicious script execution
-
----
-
-### 5. **SQL/NoSQL Injection Protection** (HIGH)
-
-#### Multiple Layers:
-1. **Prisma ORM**: Parameterized queries by default
-2. **express-mongo-sanitize**: Prevents NoSQL injection via query operators
-3. **Zod Validation**: Type-safe input validation before processing
+**Code**: `apps/backend/src/server.ts`
 
 ```typescript
-app.use(mongoSanitize({
-  replaceWith: '_',
-  onSanitize: ({ req, key }) => {
-    console.warn(`Sanitized request: ${key}`);
-  },
-}));
-```
-
-**What it prevents**: SQL injection, NoSQL injection, database manipulation
-
----
-
-### 6. **Security Headers** (MEDIUM)
-
-#### Helmet.js Configuration
-- **Content Security Policy**: Restricts resource loading
-- **HSTS**: Forces HTTPS connections (max-age: 1 year)
-- **X-Frame-Options**: Prevents clickjacking
-- **X-Content-Type-Options**: Prevents MIME sniffing
-- **Referrer-Policy**: Controls referrer information
-
-```typescript
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET!,
+    name: 'notes-session',        // Custom name (not "connect.sid")
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,              // Prevent JavaScript access
+      secure: process.env.NODE_ENV === 'production',  // HTTPS only
+      sameSite: 'strict',          // CSRF protection
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-}));
+    store: new PrismaSessionStore(prisma, {
+      checkPeriod: 2 * 60 * 1000,  // Cleanup every 2 minutes
+    }),
+  })
+);
 ```
 
-**What it prevents**: Clickjacking, MIME sniffing, protocol downgrade attacks
+**Security Features**:
+- ✅ **HttpOnly cookies**: No client-side JavaScript access
+- ✅ **Secure flag**: HTTPS-only transmission (production)
+- ✅ **SameSite strict**: Prevents CSRF attacks
+- ✅ **Custom session name**: Obscures tech stack
+- ✅ **Session expiry**: 24h default, 30d with "Remember Me"
+- ✅ **Database storage**: Sessions in PostgreSQL, not memory
+- ✅ **Session rotation**: New session ID on login
+
+**Session Secret**:
+```bash
+# Generate secure secret (32+ characters)
+openssl rand -base64 32
+
+# Store in .env (never commit!)
+SESSION_SECRET=your-generated-secret-here
+```
+
+**Best Practices**:
+- Rotate SESSION_SECRET every 3-6 months
+- Use different secrets for dev/staging/production
+- Store in environment variables, not code
+- Minimum 32 characters, random
 
 ---
 
-### 7. **Session Security** (MEDIUM)
+### Account Lockout
 
-#### Secure Session Configuration
-- **HttpOnly**: Cookies not accessible via JavaScript
-- **SameSite**: `strict` - prevents CSRF via cookie
-- **Secure**: HTTPS-only in production
-- **Custom Name**: Changed from default `connect.sid` to `sessionId`
-- **Max Age**: 24 hours
+**Implementation**: Failed login attempt tracking
 
-```typescript
-cookie: {
-  secure: process.env.NODE_ENV === "production",
-  httpOnly: true,
-  sameSite: 'strict',
-  maxAge: 24 * 60 * 60 * 1000,
+**Database Fields** (`prisma/schema.prisma`):
+```prisma
+model User {
+  failedLoginAttempts Int      @default(0)
+  accountLockedUntil  DateTime?
+  lastLoginAt         DateTime?
 }
 ```
 
-**What it prevents**: Session hijacking, XSS session theft, CSRF attacks
+**Code**: `apps/backend/src/routes/auth.ts`
+
+```typescript
+// Check if account is locked
+if (user.accountLockedUntil && user.accountLockedUntil > new Date()) {
+  return res.status(403).json({ 
+    error: 'Account temporarily locked. Try again later.' 
+  });
+}
+
+// Invalid password - increment attempts
+const newFailedAttempts = user.failedLoginAttempts + 1;
+if (newFailedAttempts >= 5) {
+  // Lock account for 15 minutes
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: newFailedAttempts,
+      accountLockedUntil: new Date(Date.now() + 15 * 60 * 1000),
+    },
+  });
+}
+
+// Successful login - reset attempts
+await prisma.user.update({
+  where: { id: user.id },
+  data: {
+    failedLoginAttempts: 0,
+    accountLockedUntil: null,
+    lastLoginAt: new Date(),
+  },
+});
+```
+
+**Configuration**:
+- **Threshold**: 5 failed attempts
+- **Lockout duration**: 15 minutes
+- **Reset**: On successful login
+- **Notification**: Generic error message (no enumeration)
+
+**User Experience**:
+- Clear error after lockout
+- No indication of valid vs. invalid email
+- Lockout expires automatically
+- No admin intervention needed
 
 ---
 
-### 8. **CORS Protection** (MEDIUM)
+### Authorization
 
-#### Configured CORS
-- **Origin**: Whitelist specific origin (default: `http://localhost:3000`)
-- **Credentials**: Enabled for cookie-based authentication
-- **Environment-based**: Configurable via `CORS_ORIGIN` env variable
+**Implementation**: Ownership-based access control
 
-**What it prevents**: Unauthorized cross-origin requests, API abuse from untrusted domains
+**Middleware**: `apps/backend/src/middleware/auth.ts`
 
----
+```typescript
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  next();
+}
+```
 
-### 9. **Error Message Security** (LOW-MEDIUM)
+**Resource Access**: `apps/backend/src/routes/notes.ts`
 
-#### Generic Error Messages
-- **Registration**: "Registration failed" (prevents email enumeration)
-- **Login**: "Invalid credentials" (doesn't reveal if email exists)
-- **Not Found**: "Note not found" (no information leakage)
-- **Server Errors**: Generic messages in production
+```typescript
+// Verify note ownership
+const note = await prisma.note.findFirst({
+  where: {
+    id: noteId,
+    userId: req.session.userId,  // Only owner's notes
+  },
+});
 
-**What it prevents**: Information disclosure, user enumeration, system fingerprinting
+if (!note) {
+  return res.status(404).json({ error: 'Note not found' });
+}
+```
 
----
-
-### 10. **Input Validation** (MEDIUM)
-
-#### Zod Schema Validation
-- **Location**: `packages/types/src/index.ts`
-- **Email Validation**: Additional check with `validator.isEmail()`
-- **Password Requirements**: Minimum 8 characters
-- **Type Safety**: All inputs validated before processing
-
-**What it prevents**: Invalid data processing, type confusion attacks
-
----
-
-## 🔒 Additional Security Measures
-
-### Data Isolation
-- **User-scoped queries**: All notes filtered by `userId`
-- **Authorization checks**: Verify ownership before update/delete
-- **Session-based auth**: User ID from session, not request body
-
-### Request Size Limits
-- **JSON body**: 10MB limit
-- **URL-encoded**: 10MB limit
-
-### Database Indexes
-- **Performance**: Indexes on frequently queried fields
-- **Security**: Faster lookups reduce timing attack vectors
+**Authorization Rules**:
+- ✅ Users can only access their own notes
+- ✅ No admin/role system (single-tenant design)
+- ✅ Session required for all authenticated routes
+- ✅ Ownership verified on every operation
 
 ---
 
-## ⚠️ Known Limitations & Future Improvements
+## 🛡️ Input Validation & Sanitization
 
-### Current Limitations:
+### Validation Layer
 
-1. **Session Storage**: In-memory (not suitable for production scale)
-   - **Recommendation**: Implement Redis session store
+**Implementation**: Zod schema validation
 
-2. **HTTPS**: Not enforced in development
-   - **Recommendation**: Use HTTPS in all environments
+**Code**: `packages/types/src/index.ts`
 
-3. **2FA**: Not implemented
-   - **Recommendation**: Add TOTP-based 2FA
+```typescript
+import { z } from 'zod';
 
-4. **API Keys**: Not supported
-   - **Recommendation**: Add JWT for API authentication
+export const registerSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
 
-5. **Audit Logging**: Minimal logging
-   - **Recommendation**: Implement comprehensive audit logs
+export const noteSchema = z.object({
+  title: z.string().min(1).max(255),
+  content: z.string(),
+  color: z.enum(['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink']).nullable(),
+  isFavorite: z.boolean().default(false),
+  tags: z.array(z.string()).default([]),
+});
+```
 
-6. **File Uploads**: Not secured (if implemented)
-   - **Recommendation**: Virus scanning, type validation, size limits
+**Validation Points**:
+1. **Client-side**: Form validation (UX improvement)
+2. **Server-side**: Zod validation (security enforcement)
+3. **Database**: Prisma type checking (data integrity)
 
----
-
-## 🚀 Production Deployment Checklist
-
-Before deploying to production:
-
-- [ ] Set strong `SESSION_SECRET` (32+ random characters)
-- [ ] Set secure `DATABASE_URL` with strong password
-- [ ] Enable HTTPS/SSL certificates
-- [ ] Configure Redis session store
-- [ ] Update `CORS_ORIGIN` to production domain
-- [ ] Set `NODE_ENV=production`
-- [ ] Enable rate limiting with stricter limits
-- [ ] Set up monitoring and alerting
-- [ ] Configure database backups
-- [ ] Enable audit logging
-- [ ] Review and update CSP policies
-- [ ] Implement API versioning
-- [ ] Set up WAF (Web Application Firewall)
+**Benefits**:
+- ✅ Type safety (TypeScript)
+- ✅ Runtime validation
+- ✅ Consistent validation logic
+- ✅ Detailed error messages
 
 ---
 
-## 📋 Security Testing
+### XSS Protection
 
-### Recommended Tests:
+**Implementation**: xss package for content sanitization
 
-1. **Password Security**
-   - Attempt login with plain text vs hashed
-   - Verify bcrypt salt rounds
+**Code**: `apps/backend/src/middleware/sanitize.ts`
 
-2. **Account Lockout**
-   - Try 6+ failed logins
-   - Verify 15-minute lockout
+```typescript
+import xss from 'xss';
 
-3. **XSS Prevention**
-   - Submit note with `<script>alert('XSS')</script>`
-   - Verify sanitization
+export function sanitizeMarkdown(content: string): string {
+  return xss(content, {
+    whiteList: {
+      // Allowed HTML tags for markdown
+      p: [], br: [], strong: [], em: [], u: [],
+      h1: [], h2: [], h3: [], h4: [], h5: [], h6: [],
+      ul: [], ol: [], li: [],
+      a: ['href', 'title', 'target'],
+      code: ['class'], pre: [],
+      blockquote: [], hr: [],
+      table: [], thead: [], tbody: [], tr: [], th: [], td: [],
+    },
+    stripIgnoreTag: true,      // Remove unknown tags
+    stripIgnoreTagBody: ['script', 'style'],  // Remove script/style content
+  });
+}
+```
 
-4. **SQL Injection**
-   - Try malicious SQL in search/tags
-   - Verify Prisma protection
+**Usage**: `apps/backend/src/routes/notes.ts`
 
-5. **Rate Limiting**
-   - Make 101+ requests in 15 minutes
-   - Make 6+ auth requests in 15 minutes
+```typescript
+import { sanitizeMarkdown } from '../middleware/sanitize';
 
-6. **Session Security**
-   - Check cookie flags in browser DevTools
-   - Verify session expiry
+// Sanitize on create/update
+const sanitizedContent = sanitizeMarkdown(content);
 
----
+await prisma.note.create({
+  data: {
+    content: sanitizedContent,
+    // ...
+  },
+});
+```
 
-## 🔐 Environment Variables
+**Protection Against**:
+- ✅ `<script>` tag injection
+- ✅ `onerror` attribute attacks
+- ✅ JavaScript protocol URLs (`javascript:`)
+- ✅ `<iframe>` embedding
+- ✅ Style-based attacks
 
-### Required for Production:
+**Example Attack Prevention**:
+```javascript
+// Malicious input
+const input = '<img src=x onerror=alert(1)>';
 
-```bash
-# Strong random secret (32+ characters)
-SESSION_SECRET="generate-secure-random-secret-here"
-
-# Production database with strong password
-DATABASE_URL="postgresql://user:strong_password@host:5432/db"
-
-# Production frontend URL
-CORS_ORIGIN="https://your-production-domain.com"
-
-# Environment
-NODE_ENV="production"
+// Sanitized output
+const output = '<img src="x">';  // onerror removed
 ```
 
 ---
 
-## 📚 Security Resources
+### NoSQL Injection Prevention
 
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [Bcrypt Documentation](https://github.com/kelektiv/node.bcrypt.js)
-- [Helmet.js Security](https://helmetjs.github.io/)
-- [Express Security Best Practices](https://expressjs.com/en/advanced/best-practice-security.html)
-- [Prisma Security Guidelines](https://www.prisma.io/docs/concepts/components/prisma-client/security)
+**Implementation**: express-mongo-sanitize
+
+**Code**: `apps/backend/src/server.ts`
+
+```typescript
+import mongoSanitize from 'express-mongo-sanitize';
+
+app.use(mongoSanitize());  // Removes $ and . from req.body
+```
+
+**Protection**: Prevents MongoDB operator injection
+
+**Example Attack Prevention**:
+```javascript
+// Malicious input
+{
+  "email": { "$ne": null },
+  "password": { "$ne": null }
+}
+
+// Sanitized (operators removed)
+{
+  "email": "null",
+  "password": "null"
+}
+```
+
+**Note**: Using Prisma (PostgreSQL) also prevents SQL injection via parameterized queries.
 
 ---
 
-## 🛡️ Security Incident Response
+### SQL Injection Prevention
 
-If a security vulnerability is discovered:
+**Implementation**: Prisma ORM (parameterized queries)
 
-1. **Immediate**: Disable affected endpoints/features
-2. **Assessment**: Determine scope and impact
-3. **Patch**: Develop and test fix
-4. **Deploy**: Push fix to production ASAP
-5. **Notify**: Inform affected users if needed
-6. **Review**: Post-mortem and prevention measures
+**Safe Code**:
+```typescript
+// Automatic parameterization
+const user = await prisma.user.findUnique({
+  where: { email: userInput },  // Safe - parameterized
+});
+```
+
+**Unsafe Code** (avoided):
+```typescript
+// NEVER do this!
+await prisma.$queryRaw`SELECT * FROM User WHERE email = '${userInput}'`;
+// Vulnerable to SQL injection
+```
+
+**Protection**:
+- ✅ All queries parameterized
+- ✅ No raw SQL (except explicitly marked)
+- ✅ Type-safe query builder
+- ✅ Prepared statements
 
 ---
 
-## 📞 Security Contact
+## 🌐 Network Security
 
-For security concerns or vulnerability reports, contact the development team immediately.
+### HTTPS/TLS
 
-**Last Updated**: December 12, 2025  
-**Security Version**: 2.0  
-**Next Review**: March 2026
+**Status**: Enforced in production
+
+**Implementation**:
+- **Development**: HTTP (localhost only)
+- **Production**: HTTPS (automatic via Vercel/Render)
+- **Certificates**: Let's Encrypt (auto-renewal)
+
+**Configuration**: `apps/backend/src/server.ts`
+
+```typescript
+const cookieConfig = {
+  secure: process.env.NODE_ENV === 'production',  // HTTPS only in prod
+  // ...
+};
+```
+
+**Enforcement**:
+```typescript
+// Redirect HTTP to HTTPS in production
+if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+  return res.redirect(`https://${req.headers.host}${req.url}`);
+}
+```
+
+---
+
+### Security Headers
+
+**Implementation**: Helmet.js
+
+**Code**: `apps/backend/src/server.ts`
+
+```typescript
+import helmet from 'helmet';
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,          // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
+```
+
+**Headers Set**:
+```
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Content-Security-Policy: default-src 'self'
+X-Frame-Options: SAMEORIGIN
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+**Protection Against**:
+- ✅ Clickjacking (X-Frame-Options)
+- ✅ MIME sniffing (X-Content-Type-Options)
+- ✅ XSS (Content-Security-Policy)
+- ✅ Downgrade attacks (HSTS)
+
+---
+
+### CORS Configuration
+
+**Implementation**: Custom CORS policy
+
+**Code**: `apps/backend/src/server.ts`
+
+```typescript
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,  // Allow cookies
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+```
+
+**Configuration**:
+- **Development**: `http://localhost:3000`
+- **Production**: `https://your-app.vercel.app`
+- **Credentials**: Enabled (required for cookies)
+- **Methods**: GET, POST, PUT, DELETE only
+
+**Frontend Configuration**:
+```typescript
+fetch(url, {
+  credentials: 'include',  // Send cookies cross-origin
+});
+```
+
+---
+
+### Rate Limiting
+
+**Implementation**: express-rate-limit
+
+**Code**: `apps/backend/src/routes/auth.ts`
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+// Strict limiter for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 5,                     // 5 requests per window
+  message: 'Too many login attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/login', authLimiter, async (req, res) => { ... });
+router.post('/register', authLimiter, async (req, res) => { ... });
+```
+
+**Global Rate Limit**: `apps/backend/src/server.ts`
+
+```typescript
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 100,                   // 100 requests per window
+  message: 'Too many requests, please try again later.',
+});
+
+app.use(generalLimiter);
+```
+
+**Rate Limits**:
+| Endpoint Type | Limit | Window | Response |
+|---------------|-------|--------|----------|
+| Auth (login/register) | 5 requests | 15 min | 429 Too Many Requests |
+| General API | 100 requests | 15 min | 429 Too Many Requests |
+
+**Headers Returned**:
+```
+X-RateLimit-Limit: 5
+X-RateLimit-Remaining: 3
+X-RateLimit-Reset: 1702394100000
+Retry-After: 900
+```
+
+**Protection Against**:
+- ✅ Brute force attacks
+- ✅ Credential stuffing
+- ✅ DoS/DDoS attempts
+- ✅ API abuse
+
+---
+
+## 🗄️ Database Security
+
+### Connection Security
+
+**Production Connection String**:
+```
+postgresql://user:pass@host:5432/db?sslmode=require
+```
+
+**Security Features**:
+- ✅ **SSL/TLS encryption**: `sslmode=require`
+- ✅ **Connection pooling**: Prisma automatic
+- ✅ **Environment variables**: Credentials not in code
+- ✅ **Limited privileges**: Database user has minimal permissions
+
+**Prisma Configuration**:
+```typescript
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
+});
+```
+
+---
+
+### Data Encryption
+
+**At Rest**:
+- ✅ Database encryption (Neon/Supabase default)
+- ✅ Backup encryption
+- ✅ Passwords hashed (bcrypt)
+
+**In Transit**:
+- ✅ HTTPS (client ↔ server)
+- ✅ SSL (server ↔ database)
+- ✅ TLS 1.2+ minimum
+
+**Not Encrypted**:
+- Note content (stored as plaintext)
+- User emails (needed for queries)
+
+**Future**: End-to-end encryption option for notes
+
+---
+
+### Soft Deletes
+
+**Implementation**: Logical deletion (not physical)
+
+**Schema**:
+```prisma
+model Note {
+  isDeleted Boolean @default(false)
+}
+```
+
+**Benefits**:
+- ✅ Accidental delete recovery
+- ✅ Audit trail
+- ✅ No data loss
+- ✅ Retention policy compliance
+
+**Queries**:
+```typescript
+// Exclude deleted notes
+const notes = await prisma.note.findMany({
+  where: {
+    userId: userId,
+    isDeleted: false,  // Always filter
+  },
+});
+
+// Include trash
+const trash = await prisma.note.findMany({
+  where: { userId, isDeleted: true },
+});
+```
+
+---
+
+## 🚨 Attack Prevention
+
+### Brute Force Protection
+
+**Layers**:
+1. **Rate limiting**: 5 auth attempts / 15 min
+2. **Account lockout**: 5 failed logins = 15 min lock
+3. **Generic errors**: No email enumeration
+
+**Example Flow**:
+```
+Attempt 1-4: Invalid credentials
+Attempt 5: Account locked for 15 minutes
+Attempt 6+: "Account temporarily locked" (403)
+After 15 min: Attempts reset, can try again
+```
+
+---
+
+### CSRF Protection
+
+**Implementation**: SameSite cookie attribute
+
+**Configuration**:
+```typescript
+cookie: {
+  sameSite: 'strict',  // Don't send cookies cross-site
+}
+```
+
+**Why Effective**:
+- Cookies not sent from other sites
+- Forms from other sites can't authenticate
+- No CSRF token needed (SameSite replaces it)
+
+**Limitations**:
+- Requires same-site frontend/backend (or CORS)
+- Not supported in very old browsers (<5%)
+
+---
+
+### Session Hijacking Prevention
+
+**Protections**:
+1. **HttpOnly cookies**: No JavaScript access
+2. **Secure flag**: HTTPS-only transmission
+3. **Short expiry**: 24h default
+4. **Session rotation**: New ID on login
+5. **IP binding** (future): Track session IP
+
+**Best Practices**:
+- Always use HTTPS in production
+- Logout on shared computers
+- Clear cookies on logout
+- Implement "Logout all devices" (future)
+
+---
+
+### Clickjacking Prevention
+
+**Implementation**: X-Frame-Options header
+
+**Configuration**:
+```typescript
+helmet({
+  frameguard: { action: 'sameorigin' },  // Can't iframe from other sites
+});
+```
+
+**Result**: Application can't be embedded in malicious iframes
+
+---
+
+## 🔍 Security Monitoring
+
+### Logging
+
+**Current Implementation**: Console logging
+
+**Logged Events**:
+- ✅ Server startup
+- ✅ Authentication attempts
+- ✅ Failed logins
+- ✅ Account lockouts
+- ✅ Rate limit violations
+- ✅ Database errors
+- ✅ Unhandled exceptions
+
+**Example**:
+```typescript
+console.log(`[AUTH] Login attempt for email: ${email}`);
+console.log(`[AUTH] Failed login attempt ${attempts}/5 for user ${userId}`);
+console.error('[ERROR] Database connection failed:', error);
+```
+
+**Future**: Structured logging with Winston/Pino
+
+---
+
+### Error Handling
+
+**Security Principle**: Never expose internal details
+
+**Implementation**:
+```typescript
+try {
+  // Operation
+} catch (error) {
+  console.error('Internal error:', error);  // Log details
+  res.status(500).json({ 
+    error: 'Server error' // Generic user message
+  });
+}
+```
+
+**Examples**:
+```typescript
+// ❌ Bad: Exposes implementation
+res.status(500).json({ error: error.message });
+
+// ✅ Good: Generic message
+res.status(500).json({ error: 'Server error' });
+
+// ✅ Good: Safe validation errors
+res.status(400).json({ error: 'Invalid email format' });
+```
+
+---
+
+### Monitoring Setup (Future)
+
+**Recommended Tools**:
+
+1. **Sentry** (error tracking):
+   - Real-time error alerts
+   - Stack traces
+   - User impact analysis
+
+2. **LogRocket** (session replay):
+   - User session recording
+   - Console logs
+   - Network requests
+
+3. **UptimeRobot** (uptime monitoring):
+   - 5-minute checks
+   - Email/SMS alerts
+   - Response time tracking
+
+---
+
+## 🛠️ Security Best Practices
+
+### Development
+
+- [ ] Never commit `.env` files
+- [ ] Use `.env.example` for templates
+- [ ] Different secrets for dev/prod
+- [ ] Keep dependencies updated
+- [ ] Run `pnpm audit` regularly
+- [ ] Use TypeScript strict mode
+- [ ] Enable ESLint security rules
+
+**Commands**:
+```bash
+# Check for vulnerabilities
+pnpm audit
+
+# Fix auto-fixable issues
+pnpm audit fix
+
+# Update dependencies
+pnpm update --latest
+```
+
+---
+
+### Production
+
+- [ ] HTTPS enforced everywhere
+- [ ] Strong SESSION_SECRET (32+ chars)
+- [ ] Rate limiting enabled
+- [ ] Security headers configured
+- [ ] Database backups enabled
+- [ ] Monitoring/alerting setup
+- [ ] Regular security reviews
+- [ ] Incident response plan
+
+**Checklist**: See [DEPLOYMENT.md](./DEPLOYMENT.md) security section
+
+---
+
+### Code Review Checklist
+
+When reviewing code for security:
+
+**Authentication**:
+- [ ] Passwords hashed (never plaintext)
+- [ ] Session management secure
+- [ ] Authorization checks present
+
+**Input Validation**:
+- [ ] All inputs validated (Zod schemas)
+- [ ] Content sanitized (XSS protection)
+- [ ] SQL injection prevented (Prisma)
+
+**API Security**:
+- [ ] Rate limiting on sensitive endpoints
+- [ ] Ownership verification
+- [ ] Generic error messages
+
+**Dependencies**:
+- [ ] No known vulnerabilities (`pnpm audit`)
+- [ ] Minimal dependencies
+- [ ] Trusted packages only
+
+---
+
+## 📋 Security Incidents
+
+### Response Plan
+
+**1. Identify**:
+- Monitor logs for suspicious activity
+- User reports of unusual behavior
+- Automated alerts (Sentry/monitoring)
+
+**2. Contain**:
+- Identify affected systems/users
+- Isolate compromised components
+- Block malicious IPs (rate limiting)
+
+**3. Eradicate**:
+- Patch vulnerabilities
+- Update affected dependencies
+- Rotate compromised secrets
+
+**4. Recover**:
+- Deploy fixes
+- Verify system integrity
+- Restore from backups if needed
+
+**5. Learn**:
+- Document incident
+- Update security measures
+- Communicate with users
+
+---
+
+### Contact
+
+**Security Issues**: Report to security@yourapp.com (setup required)
+
+**PGP Key**: (setup required for encrypted reports)
+
+---
+
+## 🔄 Security Roadmap
+
+### Implemented ✅
+
+- [x] Password hashing (bcrypt)
+- [x] Session management
+- [x] Account lockout
+- [x] Rate limiting
+- [x] XSS protection
+- [x] SQL injection prevention
+- [x] HTTPS/TLS
+- [x] Security headers
+- [x] CORS configuration
+- [x] Input validation
+
+### Planned 📋
+
+#### Phase 2
+- [ ] Two-factor authentication (2FA)
+- [ ] Email verification
+- [ ] Password reset flow
+- [ ] Security notifications (login alerts)
+
+#### Phase 3
+- [ ] OAuth integration (Google, GitHub)
+- [ ] IP-based session binding
+- [ ] Device fingerprinting
+- [ ] Advanced logging (Sentry)
+
+#### Phase 4
+- [ ] End-to-end encryption (notes)
+- [ ] Zero-knowledge architecture
+- [ ] Security audit (professional)
+- [ ] Penetration testing
+
+---
+
+**Last Review**: December 12, 2025  
+**Next Review**: March 12, 2026 (quarterly)
+

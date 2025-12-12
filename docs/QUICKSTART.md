@@ -1,129 +1,178 @@
-# Quick Start Guide
+# Quickstart Guide
 
-## Setup (First Time)
+Get the notes application running in 5 minutes.
 
-1. **Install pnpm** (if not already installed):
-   ```bash
-   npm install -g pnpm
-   ```
+## Prerequisites
 
-2. **Install dependencies**:
-   ```bash
-   pnpm install
-   ```
+- **Node.js** >= 20.0.0
+- **pnpm** >= 9.0.0
+- **Docker** (for PostgreSQL)
+- **Git**
 
-3. **Setup PostgreSQL**:
-   - Install PostgreSQL on your machine
-   - Create a database:
-     ```bash
-     createdb notes_db
-     ```
-   - Or use Docker:
-     ```bash
-     docker run --name notes-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=notes_db -p 5432:5432 -d postgres:16
-     ```
+## Installation
 
-4. **Configure environment**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your database credentials
-   ```
+### 1. Clone Repository
 
-5. **Run migrations**:
-   ```bash
-   cd apps/backend
-   pnpm prisma migrate dev
-   cd ../..
-   ```
-
-6. **Build shared packages**:
-   ```bash
-   pnpm --filter @notes/types build
-   pnpm --filter @notes/ui-lib build
-   ```
-
-## Daily Development
-
-Start everything with one command:
 ```bash
+git clone https://github.com/shwetpatil/notes-app.git
+cd notes-application
+```
+
+### 2. Install Dependencies
+
+```bash
+pnpm install
+```
+
+### 3. Setup Environment
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env if needed (defaults work for local development)
+```
+
+### 4. Start Database
+
+```bash
+# Start PostgreSQL in Docker
+docker compose up -d
+
+# Verify database is running
+docker ps
+```
+
+### 5. Initialize Database
+
+```bash
+# Push schema to database
+cd apps/backend
+npx prisma db push
+cd ../..
+```
+
+### 6. Start Application
+
+```bash
+# Start both frontend and backend
 pnpm dev
 ```
 
-Then open:
+**Servers will start:**
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
+- Backend: http://localhost:3001
 
-## Common Commands
+## First Steps
 
-```bash
-# Development
-pnpm dev                    # Run frontend + backend
-pnpm dev:frontend          # Run only frontend
-pnpm dev:backend           # Run only backend
-
-# Building
-pnpm build                 # Build all packages
-
-# Testing
-pnpm test                  # Run all tests
-pnpm --filter @notes/backend test           # Backend tests
-pnpm --filter @notes/frontend test          # E2E tests
-
-# Database
-cd apps/backend
-pnpm prisma:migrate        # Run migrations
-pnpm prisma:studio         # Open Prisma Studio
-pnpm prisma:generate       # Generate Prisma client
-
-# Formatting
-pnpm format                # Format all files
-pnpm lint                  # Lint all packages
-```
-
-## Troubleshooting
-
-### Port already in use
-```bash
-# Kill process on port 3000
-lsof -ti:3000 | xargs kill -9
-
-# Kill process on port 3001
-lsof -ti:3001 | xargs kill -9
-```
-
-### Database connection error
-- Check PostgreSQL is running
-- Verify DATABASE_URL in .env
-- Try: `cd apps/backend && pnpm prisma:generate`
-
-### TypeScript errors in frontend
-```bash
-# Rebuild shared packages
-pnpm --filter @notes/types build
-pnpm --filter @notes/ui-lib build
-```
-
-### Clear everything and start fresh
-```bash
-pnpm clean
-rm -rf node_modules apps/*/node_modules packages/*/node_modules
-pnpm install
-pnpm build
-```
-
-## Testing the App
+### 1. Create Account
 
 1. Open http://localhost:3000
-2. Login with any email/password (e.g., test@example.com / password123)
-3. Create a note
-4. Try closing and reopening - notes persist offline!
-5. Open DevTools → Application → IndexedDB to see cached data
+2. Click "Sign up"
+3. Enter email and password (8+ characters)
+4. Click "Create Account"
 
-## Demo Login Credentials
+### 2. Create Your First Note
 
-Any email/password combination works (min 6 chars for password).
-Example:
-- Email: demo@example.com
-- Password: demo123
+1. Click "+ New Note"
+2. Add a title and content
+3. Optional: Add tags, pin, or favorite
+4. Content auto-saves
 
-The app auto-creates accounts on first login for demo purposes.
+### 3. Explore Features
+
+- **Favorite** ⭐ - Click star to mark important notes
+- **Pin** 📌 - Keep notes at the top
+- **Color** 🎨 - Assign colors to organize
+- **Archive** 📦 - Hide completed notes
+- **Trash** 🗑️ - Soft delete with recovery
+- **Dark Mode** 🌙 - Toggle in sidebar
+- **Sort** - By recent, date, or A-Z
+- **Search** - Find notes instantly
+
+## Common Issues
+
+### Port Already in Use
+
+```bash
+# Kill processes on ports 3000 and 3001
+lsof -ti:3000,3001 | xargs kill -9
+```
+
+### Database Connection Failed
+
+```bash
+# Check Docker is running
+docker ps
+
+# Restart PostgreSQL
+docker compose restart
+
+# Check DATABASE_URL in .env matches docker-compose.yml
+```
+
+### Prisma Client Not Generated
+
+```bash
+cd apps/backend
+npx prisma generate
+```
+
+### Dependencies Not Found
+
+```bash
+# Clean install
+rm -rf node_modules
+pnpm install
+```
+
+## Development Commands
+
+```bash
+# Start all services
+pnpm dev
+
+# Backend only
+pnpm --filter @notes/backend dev
+
+# Frontend only
+pnpm --filter @notes/frontend dev
+
+# Build types package
+pnpm --filter @notes/types build
+
+# Run tests
+pnpm test
+
+# Database operations
+cd apps/backend
+npx prisma studio        # Open database GUI
+npx prisma db push       # Push schema changes
+npx prisma migrate dev   # Create migration
+```
+
+## Next Steps
+
+- Read [Architecture Overview](./ARCHITECTURE.md) to understand the system
+- Check [Features Guide](./FEATURES.md) for detailed feature documentation
+- Review [Security Guide](./SECURITY.md) for production deployment
+- See [Development Guide](./DEVELOPMENT.md) for workflows
+
+## Quick Tips
+
+💡 **Auto-save:** Notes save automatically as you type  
+💡 **Offline:** Works without internet using IndexedDB  
+💡 **Markdown:** Enable markdown rendering per note  
+💡 **Remember Me:** Check on login for 30-day session  
+💡 **Keyboard:** Use Tab to navigate fields quickly  
+
+## Support
+
+For issues or questions:
+1. Check [Common Issues](#common-issues) above
+2. Review [Development Guide](./DEVELOPMENT.md)
+3. Check [Security Guide](./SECURITY.md) for security questions
+
+---
+
+**Ready to build?** Continue to [Architecture Overview](./ARCHITECTURE.md)
