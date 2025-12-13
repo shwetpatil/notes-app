@@ -1,0 +1,145 @@
+version: '3.8'
+
+# Production-optimized configuration with vertical scaling
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: notes-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-notes_db}
+      # Performance tuning
+      POSTGRES_SHARED_BUFFERS: ${POSTGRES_SHARED_BUFFERS:-256MB}
+      POSTGRES_EFFECTIVE_CACHE_SIZE: ${POSTGRES_EFFECTIVE_CACHE_SIZE:-1GB}
+      POSTGRES_MAINTENANCE_WORK_MEM: ${POSTGRES_MAINTENANCE_WORK_MEM:-128MB}
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: "0.9"
+      POSTGRES_WAL_BUFFERS: "16MB"
+      POSTGRES_DEFAULT_STATISTICS_TARGET: "100"
+      POSTGRES_RANDOM_PAGE_COST: "1.1"
+      POSTGRES_EFFECTIVE_IO_CONCURRENCY: "200"
+      POSTGRES_WORK_MEM: "4MB"
+      POSTGRES_MIN_WAL_SIZE: "1GB"
+      POSTGRES_MAX_WAL_SIZE: "4GB"
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    networks:
+      - notes-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: notes-redis-prod
+    restart: always
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - notes-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    container_name: notes-backend-prod
+    restart: always
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-notes_db}
+      
+      # Server
+      BACKEND_PORT: ${BACKEND_PORT:-3001}
+      NODE_ENV: production
+      
+      # Security
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      
+      # Vertical Scaling Configuration
+      CLUSTER_MODE: "true"
+      MAX_WORKERS: ${MAX_WORKERS:-4}
+      ENABLE_MEMORY_MONITORING: "true"
+      MEMORY_THRESHOLD_MB: ${MEMORY_THRESHOLD_MB:-512}
+      
+      # Redis (for session storage in cluster mode)
+      REDIS_URL: redis://redis:6379
+      
+      # Node.js Options (set heap size)
+      NODE_OPTIONS: "--max-old-space-size=${MAX_OLD_SPACE_SIZE:-2048}"
+    ports:
+      - '${BACKEND_PORT:-3001}:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: ${BACKEND_CPU_LIMIT:-4}
+          memory: ${BACKEND_MEMORY_LIMIT:-8G}
+        reservations:
+          cpus: ${BACKEND_CPU_RESERVATION:-2}
+          memory: ${BACKEND_MEMORY_RESERVATION:-4G}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks:
+      - notes-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  notes-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

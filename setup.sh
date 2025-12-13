@@ -8,7 +8,7 @@ set -e
 echo "🚀 Setting up Notes Application..."
 echo ""
 
-# Check for pnpm
+# Check for pnpmy
 if ! command -v pnpm &> /dev/null; then
     echo "❌ pnpm is not installed. Please install it first:"
     echo "   npm install -g pnpm"

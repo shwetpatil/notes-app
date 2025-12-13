@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -8,11 +8,13 @@ import dotenv from "dotenv";
 import { authRouter } from "./routes/auth";
 import { notesRouter } from "./routes/notes";
 import { healthRouter } from "./routes/health";
+import { metricsRouter } from "./routes/metrics";
 import { errorHandler } from "./middleware/errorHandler";
+import { performanceMonitoring } from "./middleware/monitoring";
 
 dotenv.config();
 
-const app = express();
+const app: Express = express();
 const PORT = process.env.BACKEND_PORT || 3001;
 
 // ============================================================================
@@ -58,6 +60,11 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Performance monitoring (must be after body parsers)
+if (process.env.ENABLE_PERFORMANCE_LOGGING === "true" || process.env.ENABLE_METRICS_COLLECTION === "true") {
+  app.use(performanceMonitoring);
+}
+
 // Sanitize user input to prevent NoSQL injection
 app.use(mongoSanitize({
   replaceWith: '_',
@@ -89,6 +96,7 @@ app.use(
 // ============================================================================
 
 app.use("/api/health", healthRouter);
+app.use("/api/metrics", metricsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/notes", notesRouter);
 
@@ -107,9 +115,28 @@ app.use(errorHandler);
 // Server
 // ============================================================================
 
-app.listen(PORT, () => {
-  console.log(`✨ Backend server running on http://localhost:${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
-});
+// Only start server if not in cluster mode or if we're a worker
+if (!process.env.CLUSTER_MODE || require("cluster").isWorker) {
+  app.listen(PORT, () => {
+    const pid = process.pid;
+    console.log(`✨ Backend server running on http://localhost:${PORT} (PID: ${pid})`);
+    console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
+    
+    if (process.env.CLUSTER_MODE === "true") {
+      console.log(`👷 Worker process ${pid} ready`);
+    }
+  });
+
+  // Graceful shutdown for single instance mode
+  if (!process.env.CLUSTER_MODE) {
+    const gracefulShutdown = () => {
+      console.log("\n🛑 Received shutdown signal, closing server gracefully...");
+      process.exit(0);
+    };
+
+    process.on("SIGTERM", gracefulShutdown);
+    process.on("SIGINT", gracefulShutdown);
+  }
+}
 
 export default app;

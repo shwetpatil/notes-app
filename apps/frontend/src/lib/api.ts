@@ -1,5 +1,6 @@
 import axios from "axios";
 import { Note, CreateNoteInput, UpdateNoteInput, LoginInput, ApiResponse } from "@notes/types";
+import { trackAPICall } from "./monitoring";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -11,10 +12,42 @@ export const apiClient = axios.create({
   },
 });
 
-// Add response interceptor for better error logging
+// Add request interceptor to track timing
+apiClient.interceptors.request.use(
+  (config) => {
+    // Store start time
+    (config as any).metadata = { startTime: Date.now() };
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Add response interceptor for error logging and performance tracking
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Track API call performance
+    const config = response.config as any;
+    const duration = config.metadata ? Date.now() - config.metadata.startTime : 0;
+    trackAPICall(
+      config.method?.toUpperCase() || 'GET',
+      config.url || '',
+      duration,
+      response.status
+    );
+    
+    return response;
+  },
   (error) => {
+    // Track failed API calls
+    const config = error.config as any;
+    const duration = config?.metadata ? Date.now() - config.metadata.startTime : 0;
+    trackAPICall(
+      config?.method?.toUpperCase() || 'GET',
+      config?.url || '',
+      duration,
+      error.response?.status || 0
+    );
+
     console.error("API Error:", {
       url: error.config?.url,
       method: error.config?.method,

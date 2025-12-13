@@ -1,0 +1,101 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/**'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: your-project-id
+  SERVICE_NAME: notes-backend
+  REGION: us-central1
+  IMAGE_NAME: gcr.io/your-project-id/notes-backend
+
+jobs:
+  deploy:
+    name: Deploy to Google Cloud Run
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+    
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker
+    
+    - name: Build and push image
+      id: build-image
+      run: |
+        cd apps/backend
+        IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ github.sha }}
+        IMAGE_LATEST=${{ env.IMAGE_NAME }}:latest
+        
+        docker build -t $IMAGE_TAG -t $IMAGE_LATEST .
+        docker push $IMAGE_TAG
+        docker push $IMAGE_LATEST
+        
+        echo "image=$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    - name: Deploy to Cloud Run
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@v2
+      with:
+        service: ${{ env.SERVICE_NAME }}
+        region: ${{ env.REGION }}
+        image: ${{ steps.build-image.outputs.image }}
+        flags: |
+          --platform=managed
+          --allow-unauthenticated
+          --port=3001
+          --cpu=2
+          --memory=2Gi
+          --min-instances=2
+          --max-instances=10
+          --concurrency=80
+          --timeout=300
+          --cpu-throttling=false
+          --execution-environment=gen2
+        env_vars: |
+          NODE_ENV=production
+          BACKEND_PORT=3001
+          CLUSTER_MODE=false
+          ENABLE_PERFORMANCE_LOGGING=true
+          ENABLE_METRICS_COLLECTION=true
+          ENABLE_WEB_VITALS_LOGGING=true
+        secrets: |
+          DATABASE_URL=database-url:latest
+          SESSION_SECRET=session-secret:latest
+          REDIS_URL=redis-url:latest
+    
+    - name: Verify deployment
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "🌐 URL: ${{ steps.deploy.outputs.url }}"
+        echo "📦 Service: ${{ env.SERVICE_NAME }}"
+        echo "📍 Region: ${{ env.REGION }}"
+        echo "🖼️  Image: ${{ steps.build-image.outputs.image }}"
+        
+        # Test the endpoint
+        curl -f ${{ steps.deploy.outputs.url }}/api/health || echo "Health check failed"
+    
+    - name: Post deployment summary
+      if: success()
+      run: |
+        echo "## 🚀 Google Cloud Run Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Status**: Success" >> $GITHUB_STEP_SUMMARY
+        echo "🌐 **URL**: ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+        echo "📍 **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+        echo "📦 **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "🖼️  **Image**: \`${{ steps.build-image.outputs.image }}\`" >> $GITHUB_STEP_SUMMARY

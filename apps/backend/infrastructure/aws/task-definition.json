@@ -1,0 +1,77 @@
+{
+  "family": "notes-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "notes-backend",
+      "image": "YOUR_ECR_REPO/notes-backend:latest",
+      "portMappings": [
+        {
+          "containerPort": 3001,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "BACKEND_PORT",
+          "value": "3001"
+        },
+        {
+          "name": "CLUSTER_MODE",
+          "value": "false"
+        },
+        {
+          "name": "ENABLE_PERFORMANCE_LOGGING",
+          "value": "true"
+        },
+        {
+          "name": "ENABLE_METRICS_COLLECTION",
+          "value": "true"
+        },
+        {
+          "name": "ENABLE_WEB_VITALS_LOGGING",
+          "value": "true"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:notes/database-url"
+        },
+        {
+          "name": "SESSION_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:notes/session-secret"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:notes/redis-url"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/notes-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

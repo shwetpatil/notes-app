@@ -1,0 +1,124 @@
+name: Deploy to Azure Container Instances
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/**'
+  workflow_dispatch:
+
+env:
+  AZURE_RESOURCE_GROUP: notes-app-rg
+  AZURE_LOCATION: eastus
+  CONTAINER_GROUP_NAME: notes-backend-cg
+  ACR_NAME: notesappacr
+  IMAGE_NAME: notes-backend
+
+jobs:
+  deploy:
+    name: Deploy to Azure Container Instances
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Login to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.ACR_NAME }}.azurecr.io
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+    
+    - name: Build and push image
+      id: build-image
+      run: |
+        cd apps/backend
+        IMAGE_TAG=${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        IMAGE_LATEST=${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+        
+        docker build -t $IMAGE_TAG -t $IMAGE_LATEST .
+        docker push $IMAGE_TAG
+        docker push $IMAGE_LATEST
+        
+        echo "image=$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    - name: Deploy to Azure Container Instances
+      uses: azure/CLI@v1
+      with:
+        inlineScript: |
+          az container create \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.CONTAINER_GROUP_NAME }} \
+            --image ${{ steps.build-image.outputs.image }} \
+            --registry-login-server ${{ env.ACR_NAME }}.azurecr.io \
+            --registry-username ${{ secrets.ACR_USERNAME }} \
+            --registry-password ${{ secrets.ACR_PASSWORD }} \
+            --dns-name-label ${{ env.CONTAINER_GROUP_NAME }} \
+            --ports 3001 \
+            --cpu 2 \
+            --memory 4 \
+            --restart-policy Always \
+            --environment-variables \
+              NODE_ENV=production \
+              BACKEND_PORT=3001 \
+              CLUSTER_MODE=false \
+              ENABLE_PERFORMANCE_LOGGING=true \
+              ENABLE_METRICS_COLLECTION=true \
+              ENABLE_WEB_VITALS_LOGGING=true \
+            --secure-environment-variables \
+              DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
+              REDIS_URL=${{ secrets.REDIS_URL }} \
+            --location ${{ env.AZURE_LOCATION }}
+    
+    - name: Get container details
+      id: get-details
+      uses: azure/CLI@v1
+      with:
+        inlineScript: |
+          FQDN=$(az container show \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.CONTAINER_GROUP_NAME }} \
+            --query ipAddress.fqdn \
+            --output tsv)
+          
+          IP=$(az container show \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.CONTAINER_GROUP_NAME }} \
+            --query ipAddress.ip \
+            --output tsv)
+          
+          echo "fqdn=$FQDN" >> $GITHUB_OUTPUT
+          echo "ip=$IP" >> $GITHUB_OUTPUT
+    
+    - name: Verify deployment
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "🌐 FQDN: ${{ steps.get-details.outputs.fqdn }}"
+        echo "📍 IP: ${{ steps.get-details.outputs.ip }}"
+        echo "📦 Container Group: ${{ env.CONTAINER_GROUP_NAME }}"
+        echo "🖼️  Image: ${{ steps.build-image.outputs.image }}"
+        
+        # Wait for container to be ready
+        sleep 30
+        
+        # Test the endpoint
+        curl -f http://${{ steps.get-details.outputs.fqdn }}:3001/api/health || echo "Health check failed"
+    
+    - name: Post deployment summary
+      if: success()
+      run: |
+        echo "## 🚀 Azure Container Instances Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Status**: Success" >> $GITHUB_STEP_SUMMARY
+        echo "🌐 **URL**: http://${{ steps.get-details.outputs.fqdn }}:3001" >> $GITHUB_STEP_SUMMARY
+        echo "📍 **Location**: ${{ env.AZURE_LOCATION }}" >> $GITHUB_STEP_SUMMARY
+        echo "📦 **Container Group**: ${{ env.CONTAINER_GROUP_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "🖼️  **Image**: \`${{ steps.build-image.outputs.image }}\`" >> $GITHUB_STEP_SUMMARY

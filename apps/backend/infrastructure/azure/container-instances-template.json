@@ -1,0 +1,139 @@
+$schema: https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#
+contentVersion: 1.0.0.0
+parameters:
+  containerGroupName:
+    type: string
+    defaultValue: notes-backend-cg
+    metadata:
+      description: Name for the container group
+  
+  location:
+    type: string
+    defaultValue: eastus
+    metadata:
+      description: Location for the resources
+  
+  imageName:
+    type: string
+    metadata:
+      description: Container image to deploy
+  
+  registryServer:
+    type: string
+    metadata:
+      description: Container registry server
+  
+  registryUsername:
+    type: string
+    metadata:
+      description: Container registry username
+  
+  registryPassword:
+    type: securestring
+    metadata:
+      description: Container registry password
+  
+  databaseUrl:
+    type: securestring
+    metadata:
+      description: Database connection URL
+  
+  sessionSecret:
+    type: securestring
+    metadata:
+      description: Session secret key
+  
+  redisUrl:
+    type: securestring
+    metadata:
+      description: Redis connection URL
+  
+  cpuCores:
+    type: string
+    defaultValue: '2'
+    metadata:
+      description: Number of CPU cores
+  
+  memoryInGb:
+    type: string
+    defaultValue: '4'
+    metadata:
+      description: Amount of memory in GB
+
+resources:
+  - type: Microsoft.ContainerInstance/containerGroups
+    apiVersion: 2021-09-01
+    name: '[parameters(''containerGroupName'')]'
+    location: '[parameters(''location'')]'
+    properties:
+      containers:
+        - name: notes-backend
+          properties:
+            image: '[parameters(''imageName'')]'
+            ports:
+              - port: 3001
+                protocol: TCP
+            resources:
+              requests:
+                cpu: '[parameters(''cpuCores'')]'
+                memoryInGB: '[parameters(''memoryInGb'')]'
+            environmentVariables:
+              - name: NODE_ENV
+                value: production
+              - name: BACKEND_PORT
+                value: '3001'
+              - name: CLUSTER_MODE
+                value: 'false'
+              - name: ENABLE_PERFORMANCE_LOGGING
+                value: 'true'
+              - name: ENABLE_METRICS_COLLECTION
+                value: 'true'
+              - name: ENABLE_WEB_VITALS_LOGGING
+                value: 'true'
+              - name: DATABASE_URL
+                secureValue: '[parameters(''databaseUrl'')]'
+              - name: SESSION_SECRET
+                secureValue: '[parameters(''sessionSecret'')]'
+              - name: REDIS_URL
+                secureValue: '[parameters(''redisUrl'')]'
+            livenessProbe:
+              httpGet:
+                path: /api/health
+                port: 3001
+                scheme: HTTP
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+            readinessProbe:
+              httpGet:
+                path: /api/health
+                port: 3001
+                scheme: HTTP
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+      osType: Linux
+      restartPolicy: Always
+      ipAddress:
+        type: Public
+        ports:
+          - port: 3001
+            protocol: TCP
+        dnsNameLabel: '[parameters(''containerGroupName'')]'
+      imageRegistryCredentials:
+        - server: '[parameters(''registryServer'')]'
+          username: '[parameters(''registryUsername'')]'
+          password: '[parameters(''registryPassword'')]'
+    tags:
+      app: notes-backend
+      environment: production
+      
+outputs:
+  containerIPv4Address:
+    type: string
+    value: '[reference(resourceId(''Microsoft.ContainerInstance/containerGroups'', parameters(''containerGroupName''))).ipAddress.ip]'
+  containerFQDN:
+    type: string
+    value: '[reference(resourceId(''Microsoft.ContainerInstance/containerGroups'', parameters(''containerGroupName''))).ipAddress.fqdn]'

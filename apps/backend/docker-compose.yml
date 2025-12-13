@@ -18,6 +18,50 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: notes-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/notes_db
+      BACKEND_PORT: 3001
+      NODE_ENV: production
+      CLUSTER_MODE: "true"
+      MAX_WORKERS: "4"
+      ENABLE_MEMORY_MONITORING: "true"
+      MEMORY_THRESHOLD_MB: "512"
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'          # Maximum CPU cores available
+          memory: 8G         # Maximum memory
+        reservations:
+          cpus: '2'          # Minimum CPU cores reserved
+          memory: 4G         # Minimum memory reserved
 
 volumes:
   postgres_data:

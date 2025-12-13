@@ -61,15 +61,61 @@ pnpm prisma:studio
 ## Development
 
 ```bash
-# Start dev server with watch mode
+# Start dev server with watch mode (single instance)
 pnpm dev
+
+# Start dev server in cluster mode (multi-core)
+pnpm dev:cluster
 
 # Build for production
 pnpm build
 
-# Start production server
+# Start production server (single instance)
 pnpm start
+
+# Start production server in cluster mode (recommended)
+pnpm start:cluster
 ```
+
+## Vertical Scaling
+
+The backend supports vertical scaling using Node.js clustering to utilize multiple CPU cores on a single server.
+
+**Quick Start:**
+```bash
+# Development with clustering
+CLUSTER_MODE=true pnpm dev:cluster
+
+# Production with clustering
+CLUSTER_MODE=true pnpm start:cluster
+```
+
+**Key Features:**
+- Multi-core utilization via Node.js cluster
+- Configurable worker processes
+- Automatic worker restart on failures
+- Memory monitoring and alerts
+- Graceful shutdown handling
+- Docker resource limits
+
+**Configuration:**
+See [SCALING.md](./docs/SCALING.md) for detailed configuration guide including:
+- Environment variables
+- Resource allocation strategies
+- Memory and CPU limits
+- Docker deployment
+- Performance tuning
+- Troubleshooting
+
+**Environment Variables:**
+```env
+CLUSTER_MODE=true           # Enable cluster mode
+MAX_WORKERS=4               # Number of worker processes
+ENABLE_MEMORY_MONITORING=true
+MEMORY_THRESHOLD_MB=512
+```
+
+For complete scaling documentation, see [SCALING.md](./docs/SCALING.md).
 
 ## Environment Variables
 
