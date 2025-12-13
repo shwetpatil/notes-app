@@ -7,8 +7,11 @@ import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import { lowlight } from 'lowlight';
+import { createLowlight, common } from 'lowlight';
 import { useEffect } from 'react';
+
+// Create lowlight instance with common language support
+const lowlight = createLowlight(common);
 
 interface RichTextEditorProps {
   content: string;
@@ -65,6 +68,7 @@ export function RichTextEditor({
   editable = true,
 }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false, // Fix SSR hydration mismatch
     extensions: [
       StarterKit.configure({
         codeBlock: false, // We'll use CodeBlockLowlight instead
