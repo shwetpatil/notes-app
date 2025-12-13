@@ -7,6 +7,9 @@ import dotenv from "dotenv";
 import { authRouter } from "./routes/auth";
 import { notesRouter } from "./routes/notes";
 import templatesRouter from "./routes/templates";
+import foldersRouter from "./routes/folders";
+import sharesRouter from "./routes/shares";
+import exportRouter from "./routes/export";
 import { healthRouter } from "./routes/health";
 import { metricsRouter } from "./routes/metrics";
 import { errorHandler } from "./middleware/errorHandler";
@@ -112,6 +115,9 @@ app.use("/api/metrics", metricsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/notes", notesRouter);
 app.use("/api/templates", templatesRouter);
+app.use("/api/folders", foldersRouter);
+app.use("/api/shares", sharesRouter);
+app.use("/api/export", exportRouter);
 
 // 404 handler
 app.use((req, res) => {

@@ -8,41 +8,49 @@ datasource db {
 }
 
 model User {
-  id                 String     @id @default(cuid())
-  email              String     @unique
+  id                 String        @id @default(cuid())
+  email              String        @unique
   password           String
   name               String
   notes              Note[]
   templates          Template[]
-  preferences        Json?      @default("{\"theme\":\"light\",\"sortBy\":\"updatedAt\",\"viewMode\":\"list\"}")
-  failedLoginAttempts Int       @default(0)
+  folders            Folder[]
+  sharedNotes        NoteShare[]   @relation("SharedByUser")
+  noteVersions       NoteVersion[]
+  preferences        Json?         @default("{\"theme\":\"light\",\"sortBy\":\"updatedAt\",\"viewMode\":\"list\"}")
+  failedLoginAttempts Int          @default(0)
   accountLockedUntil DateTime?
   lastLoginAt        DateTime?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   @@index([email])
 }
 
 model Note {
-  id         String    @id @default(cuid())
-  title      String    @db.VarChar(255)
-  content    String    @db.Text
-  contentFormat String  @default("plaintext") @db.VarChar(20) // "plaintext" | "markdown" | "html"
-  tags       String[]  @default([])
-  color      String?   @db.VarChar(20)
-  isPinned   Boolean   @default(false)
-  isFavorite Boolean   @default(false)
-  isArchived Boolean   @default(false)
-  isMarkdown Boolean   @default(false)
-  isTrashed  Boolean   @default(false)
-  trashedAt  DateTime?
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id            String        @id @default(cuid())
+  title         String        @db.VarChar(255)
+  content       String        @db.Text
+  contentFormat String        @default("plaintext") @db.VarChar(20) // "plaintext" | "markdown" | "html"
+  tags          String[]      @default([])
+  color         String?       @db.VarChar(20)
+  isPinned      Boolean       @default(false)
+  isFavorite    Boolean       @default(false)
+  isArchived    Boolean       @default(false)
+  isMarkdown    Boolean       @default(false)
+  isTrashed     Boolean       @default(false)
+  trashedAt     DateTime?
+  folderId      String?
+  folder        Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shares        NoteShare[]
+  versions      NoteVersion[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([userId])
+  @@index([folderId])
   @@index([updatedAt])
   @@index([isPinned])
   @@index([isFavorite])
@@ -65,4 +73,58 @@ model Template {
 
   @@index([userId])
   @@index([updatedAt])
+}
+
+model Folder {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  color       String?  @db.VarChar(20)
+  icon        String?  @db.VarChar(50)
+  parentId    String?  // For nested folders
+  parent      Folder?  @relation("SubFolders", fields: [parentId], references: [id], onDelete: Cascade)
+  subFolders  Folder[] @relation("SubFolders")
+  notes       Note[]
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([parentId])
+}
+
+model NoteShare {
+  id         String   @id @default(cuid())
+  noteId     String
+  note       Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  sharedWith String   // Email or userId
+  permission String   @db.VarChar(20) // "view" | "edit"
+  sharedBy   String
+  sharedByUser User   @relation("SharedByUser", fields: [sharedBy], references: [id], onDelete: Cascade)
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([noteId, sharedWith])
+  @@index([noteId])
+  @@index([sharedWith])
+  @@index([sharedBy])
+}
+
+model NoteVersion {
+  id            String   @id @default(cuid())
+  noteId        String
+  note          Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  title         String   @db.VarChar(255)
+  content       String   @db.Text
+  contentFormat String   @db.VarChar(20)
+  tags          String[] @default([])
+  version       Int      // Version number
+  createdBy     String
+  user          User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+
+  @@index([noteId])
+  @@index([createdAt])
 }

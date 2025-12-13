@@ -1,7 +1,33 @@
 import xss from "xss";
 
 /**
- * Sanitize markdown content - allows safe HTML tags used in markdown
+ * Sanitizes markdown content by allowing only safe HTML tags
+ * Prevents XSS attacks while preserving markdown formatting
+ * 
+ * @param {string} content - Raw markdown content with potential HTML
+ * @returns {string} Sanitized content with only whitelisted tags
+ * 
+ * Allowed Tags:
+ * - Text: strong, em, u, code
+ * - Blocks: p, pre, blockquote, h1-h6, br
+ * - Lists: ul, ol, li
+ * - Links: a (href, title attributes only)
+ * - Images: img (src, alt, title attributes only)
+ * 
+ * Security:
+ * - Strips dangerous tags: script, style, iframe, object, embed
+ * - Removes all inline CSS styles
+ * - Removes unknown tags and their content
+ * 
+ * @example
+ * const userInput = '<p>Safe text</p><script>alert("XSS")</script>';
+ * const safe = sanitizeMarkdown(userInput);
+ * // Returns: '<p>Safe text</p>' (script removed)
+ * 
+ * @example
+ * const markdown = '**Bold** and <a href="#">link</a>';
+ * const safe = sanitizeMarkdown(markdown);
+ * // Preserves safe HTML: '<strong>Bold</strong> and <a href="#">link</a>'
  */
 export const sanitizeMarkdown = (content: string): string => {
   return xss(content, {
@@ -34,7 +60,41 @@ export const sanitizeMarkdown = (content: string): string => {
 };
 
 /**
- * Sanitize HTML/rich text from TipTap editor - whitelist safe tags only
+ * Sanitizes rich text HTML content from TipTap editor
+ * More permissive than sanitizeMarkdown to support rich text features
+ * Prevents XSS while allowing formatting, lists, tables, and code blocks
+ * 
+ * @param {string} content - Raw HTML content from rich text editor
+ * @returns {string} Sanitized content with comprehensive whitelist
+ * 
+ * Allowed Tags & Features:
+ * - **Text formatting**: strong, b, em, i, u, s, code, mark
+ * - **Headings**: h1, h2, h3, h4, h5, h6
+ * - **Blocks**: p, div, blockquote, pre, hr, br
+ * - **Lists**: ul, ol (with start), li (with data-* for task lists)
+ * - **Links**: a (href, title, target, rel, class)
+ * - **Tables**: table, thead, tbody, tr, th, td
+ * - **Code**: pre/code with class (language-*, hljs for syntax highlighting)
+ * - **Task lists**: li with data-checked, data-type attributes
+ * 
+ * Security:
+ * - Strips dangerous tags: script, style, iframe, object, embed, form, input, button
+ * - Removes all inline CSS to prevent CSS injection
+ * - Allows data-* attributes only for task list functionality
+ * - Allows class attributes only for code syntax highlighting
+ * 
+ * @example
+ * const richText = '<p>Normal text</p><h2>Heading</h2><ul><li data-checked="true">Task</li></ul>';
+ * const safe = sanitizeHtml(richText);
+ * // Preserves all safe tags and attributes
+ * 
+ * @example
+ * // Remove dangerous content:
+ * const dangerous = '<script>alert("XSS")</script><p>Safe</p><iframe src="evil"></iframe>';
+ * const safe = sanitizeHtml(dangerous);
+ * // Returns: '<p>Safe</p>' (script and iframe removed)
+ * 
+ * @see sanitizeMarkdown() for simpler markdown content sanitization
  */
 export const sanitizeHtml = (content: string): string => {
   return xss(content, {

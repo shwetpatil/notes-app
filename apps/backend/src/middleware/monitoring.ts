@@ -10,8 +10,45 @@ interface RequestTiming {
 const requestTimings = new WeakMap<Request, RequestTiming>();
 
 /**
- * Performance monitoring middleware
- * Tracks request duration, response size, and tags requests
+ * Performance monitoring middleware for Express routes
+ * Tracks request timing, CPU usage, and response metrics
+ * 
+ * @middleware
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
+ * @param {NextFunction} next - Express next middleware function
+ * @returns {void}
+ * 
+ * Metrics Collected:
+ * - Request duration (milliseconds)
+ * - HTTP method and path
+ * - Response status code
+ * - CPU usage (user + system time)
+ * - Error messages for failed requests
+ * - Request tags (environment, worker ID, route)
+ * 
+ * Performance Ratings:
+ * - **good**: < 100ms
+ * - **needs-improvement**: 100-300ms
+ * - **poor**: > 300ms
+ * 
+ * Features:
+ * - Color-coded console logging in development
+ * - Slow request warnings (> 1000ms)
+ * - Error request logging (5xx status codes)
+ * - In-memory metrics storage for aggregation
+ * - Configurable via environment variables
+ * 
+ * Environment Variables:
+ * - ENABLE_PERFORMANCE_LOGGING: Enable detailed console logs
+ * - ENABLE_METRICS_COLLECTION: Store metrics for aggregation
+ * 
+ * @example
+ * // Add to Express app:
+ * import { performanceMonitoring } from './middleware/monitoring';
+ * app.use(performanceMonitoring);
+ * 
+ * @see getAggregatedMetrics() for retrieving collected metrics
  */
 export function performanceMonitoring(
   req: Request,
@@ -70,7 +107,20 @@ export function performanceMonitoring(
 }
 
 /**
- * Log metrics to console or monitoring service
+ * Logs request metrics to console and stores for aggregation
+ * Color-codes output based on performance rating
+ * 
+ * @private
+ * @param {APIMetrics} metrics - Request metrics object
+ * @param {NodeJS.CpuUsage} cpuUsage - CPU usage statistics
+ * @returns {void}
+ * 
+ * Logging Behavior:
+ * - Green: Fast requests (< 100ms)
+ * - Yellow: Moderate requests (100-300ms)
+ * - Red: Slow requests (> 300ms)
+ * - Warns on slow requests > 1000ms with CPU details
+ * - Logs server errors (5xx) separately
  */
 function logMetrics(metrics: APIMetrics, cpuUsage: NodeJS.CpuUsage) {
   // Calculate rating
@@ -130,7 +180,34 @@ function storeMetric(metric: APIMetrics) {
 }
 
 /**
- * Get aggregated metrics
+ * Retrieves aggregated performance metrics from in-memory store
+ * Calculates statistical analysis of recent requests
+ * 
+ * @returns {Object|null} Aggregated metrics or null if no data
+ * @returns {number} return.totalRequests - Total requests tracked
+ * @returns {number} return.avgDuration - Average response time (ms)
+ * @returns {number} return.maxDuration - Slowest response time (ms)
+ * @returns {number} return.minDuration - Fastest response time (ms)
+ * @returns {Object} return.percentiles - Response time percentiles
+ * @returns {number} return.percentiles.p50 - 50th percentile (median)
+ * @returns {number} return.percentiles.p95 - 95th percentile
+ * @returns {number} return.percentiles.p99 - 99th percentile
+ * @returns {Record<number, number>} return.statusCodes - Count by status code
+ * @returns {Record<string, number>} return.paths - Request count by path
+ * @returns {number} return.timestamp - Metrics generation timestamp
+ * 
+ * @example
+ * const metrics = getAggregatedMetrics();
+ * console.log(`Average response: ${metrics.avgDuration}ms`);
+ * console.log(`95th percentile: ${metrics.percentiles.p95}ms`);
+ * console.log(`Status codes:`, metrics.statusCodes);
+ * 
+ * @example
+ * // Use in metrics endpoint:
+ * router.get('/api/metrics', (req, res) => {
+ *   const metrics = getAggregatedMetrics();
+ *   res.json({ success: true, data: metrics });
+ * });
  */
 export function getAggregatedMetrics() {
   if (metricsStore.length === 0) {
@@ -178,7 +255,16 @@ export function getAggregatedMetrics() {
 }
 
 /**
- * Reset metrics store
+ * Clears all stored metrics from memory
+ * Useful for testing or periodic resets
+ * 
+ * @returns {void}
+ * 
+ * @example
+ * // Reset metrics after aggregation:
+ * const metrics = getAggregatedMetrics();
+ * await sendToMonitoringService(metrics);
+ * resetMetrics(); // Clear for next period
  */
 export function resetMetrics() {
   metricsStore.length = 0;

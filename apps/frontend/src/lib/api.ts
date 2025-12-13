@@ -4,6 +4,26 @@ import { trackAPICall } from "./monitoring";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+/**
+ * Configured Axios client for API communication
+ * 
+ * Features:
+ * - Automatic credentials (cookies) inclusion for session management
+ * - Request/response interceptors for performance tracking
+ * - Error logging and monitoring integration
+ * - Automatic timing of all API calls
+ * 
+ * Configuration:
+ * - Base URL from NEXT_PUBLIC_API_URL environment variable
+ * - withCredentials: true for cookie-based authentication
+ * - Default Content-Type: application/json
+ * 
+ * @example
+ * import { apiClient } from '@/lib/api';
+ * 
+ * const response = await apiClient.get('/api/notes');
+ * const data = await apiClient.post('/api/notes', { title: 'New Note' });
+ */
 export const apiClient = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -63,6 +83,15 @@ apiClient.interceptors.response.use(
 // Auth API
 // ============================================================================
 
+/**
+ * Authentication API methods
+ * Handles user registration, login, logout, and session management
+ * 
+ * All methods return ApiResponse<T> format:
+ * { success: boolean, data?: T, error?: string, message?: string }
+ * 
+ * @namespace authApi
+ */
 export const authApi = {
   register: async (data: LoginInput) => {
     const response = await apiClient.post<ApiResponse<{ user: any; message: string }>>(
@@ -95,6 +124,29 @@ export const authApi = {
 // Notes API
 // ============================================================================
 
+/**
+ * Notes API methods
+ * Complete CRUD operations plus note management features:
+ * - Filtering (search, tags, archived, trashed)
+ * - Sorting (by date, title, etc.)
+ * - State management (pin, archive, favorite, trash)
+ * - Permanent deletion
+ * 
+ * All methods return ApiResponse<T> format with success/error handling
+ * 
+ * @namespace notesApi
+ * @example
+ * // Fetch all notes with filters:
+ * const { data } = await notesApi.getAll({ 
+ *   search: 'javascript', 
+ *   tags: 'tutorial,coding',
+ *   archived: false 
+ * });
+ * 
+ * // Create and update:
+ * const newNote = await notesApi.create({ title: 'Title', content: 'Content' });
+ * await notesApi.update(newNote.data.id, { title: 'Updated Title' });
+ */
 export const notesApi = {
   getAll: async (params?: { search?: string; tags?: string; archived?: boolean; trashed?: boolean; sortBy?: string; order?: string }) => {
     const queryParams = new URLSearchParams();
@@ -165,6 +217,30 @@ export const notesApi = {
 // Templates API
 // ============================================================================
 
+/**
+ * Templates API methods
+ * Manages reusable note templates for quick note creation
+ * 
+ * Features:
+ * - CRUD operations for templates
+ * - Sorting by various fields
+ * - Template categories and tags
+ * 
+ * Templates include pre-filled content, formatting, and metadata
+ * that can be used as starting points for new notes
+ * 
+ * @namespace templatesApi
+ * @example
+ * // Get all templates:
+ * const { data } = await templatesApi.getAll({ sortBy: 'name', order: 'asc' });
+ * 
+ * // Create from template:
+ * const template = await templatesApi.getById('template-id');
+ * await notesApi.create({
+ *   title: template.data.title,
+ *   content: template.data.content
+ * });
+ */
 export const templatesApi = {
   getAll: async (params?: { sortBy?: string; order?: string }) => {
     const queryParams = new URLSearchParams();

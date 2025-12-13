@@ -43,6 +43,7 @@ export interface Note {
   isMarkdown: boolean; // Deprecated: use contentFormat instead
   isTrashed: boolean;
   trashedAt?: Date;
+  folderId?: string;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -55,6 +56,7 @@ export const createNoteSchema = z.object({
   contentFormat: z.enum(["plaintext", "markdown", "html"]).optional().default("plaintext"),
   tags: z.array(z.string()).optional().default([]),
   color: z.string().optional(),
+  folderId: z.string().optional(),
   isPinned: z.boolean().optional().default(false),
   isFavorite: z.boolean().optional().default(false),
   isArchived: z.boolean().optional().default(false),
@@ -68,6 +70,7 @@ export const updateNoteSchema = z.object({
   contentFormat: z.enum(["plaintext", "markdown", "html"]).optional(),
   tags: z.array(z.string()).optional(),
   color: z.string().optional(),
+  folderId: z.string().optional(),
   isPinned: z.boolean().optional(),
   isFavorite: z.boolean().optional(),
   isArchived: z.boolean().optional(),
@@ -147,4 +150,102 @@ export interface SessionUser {
 export interface AuthResponse {
   user: SessionUser;
   message: string;
+}
+
+// ============================================================================
+// Folder Types
+// ============================================================================
+
+export interface Folder {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  parentId?: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const createFolderSchema = z.object({
+  name: z.string().min(1, "Name is required").max(255, "Name too long"),
+  description: z.string().max(500, "Description too long").optional(),
+  color: z.string().optional(),
+  icon: z.string().optional(),
+  parentId: z.string().optional(),
+});
+
+export const updateFolderSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(500).optional(),
+  color: z.string().optional(),
+  icon: z.string().optional(),
+  parentId: z.string().optional(),
+});
+
+export type CreateFolderInput = z.infer<typeof createFolderSchema>;
+export type UpdateFolderInput = z.infer<typeof updateFolderSchema>;
+
+// ============================================================================
+// Note Sharing Types
+// ============================================================================
+
+export interface NoteShare {
+  id: string;
+  noteId: string;
+  sharedWith: string; // Email or userId
+  permission: "view" | "edit";
+  sharedBy: string;
+  expiresAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const createShareSchema = z.object({
+  noteId: z.string(),
+  sharedWith: z.string().email("Must be a valid email"),
+  permission: z.enum(["view", "edit"]),
+  expiresAt: z.string().datetime().optional(),
+});
+
+export const updateShareSchema = z.object({
+  permission: z.enum(["view", "edit"]).optional(),
+  expiresAt: z.string().datetime().optional(),
+});
+
+export type CreateShareInput = z.infer<typeof createShareSchema>;
+export type UpdateShareInput = z.infer<typeof updateShareSchema>;
+
+// ============================================================================
+// Note Version Types
+// ============================================================================
+
+export interface NoteVersion {
+  id: string;
+  noteId: string;
+  title: string;
+  content: string;
+  contentFormat: "plaintext" | "markdown" | "html";
+  tags: string[];
+  version: number;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface NoteWithVersions extends Note {
+  versions?: NoteVersion[];
+  currentVersion?: number;
+}
+
+// ============================================================================
+// Export Types
+// ============================================================================
+
+export type ExportFormat = "pdf" | "markdown" | "json" | "html";
+
+export interface ExportOptions {
+  format: ExportFormat;
+  includeMetadata?: boolean;
+  includeTags?: boolean;
 }

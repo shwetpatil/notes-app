@@ -17,6 +17,47 @@ interface RichTextEditorProps {
   editable?: boolean;
 }
 
+/**
+ * Rich text editor component using TipTap (ProseMirror)
+ * Provides WYSIWYG editing with formatting toolbar and keyboard shortcuts
+ * 
+ * Features:
+ * - Text formatting: Bold, Italic, Strikethrough, Inline code
+ * - Headings: H1, H2, H3
+ * - Lists: Bullet, Numbered, Task lists with checkboxes
+ * - Blockquotes and Code blocks with syntax highlighting
+ * - Links with URL input
+ * - Undo/Redo support
+ * - Clear formatting
+ * - Read-only mode support
+ * - Dark mode compatible
+ * 
+ * @component
+ * @param {RichTextEditorProps} props - Component props
+ * @param {string} props.content - HTML content to display/edit
+ * @param {Function} props.onChange - Callback when content changes, receives HTML string
+ * @param {string} [props.placeholder='Start writing...'] - Placeholder text
+ * @param {boolean} [props.editable=true] - Whether editor is editable
+ * @returns {JSX.Element} Rich text editor with toolbar
+ * 
+ * @example
+ * const [content, setContent] = useState('<p>Initial content</p>');
+ * 
+ * <RichTextEditor
+ *   content={content}
+ *   onChange={setContent}
+ *   placeholder="Write your note..."
+ *   editable={true}
+ * />
+ * 
+ * @example
+ * // Read-only mode:
+ * <RichTextEditor
+ *   content={note.content}
+ *   onChange={() => {}} // No-op
+ *   editable={false}
+ * />
+ */
 export function RichTextEditor({
   content,
   onChange,
@@ -91,6 +132,31 @@ interface MenuBarProps {
   editor: any;
 }
 
+/**
+ * Formatting toolbar for RichTextEditor
+ * Provides buttons for all text formatting options with visual feedback
+ * 
+ * Features:
+ * - Active state highlighting for current formatting
+ * - Disabled state for unavailable actions
+ * - Keyboard shortcut hints in tooltips
+ * - Grouped controls with visual separators
+ * - Dark mode support
+ * 
+ * @component
+ * @param {MenuBarProps} props - Component props
+ * @param {Editor} props.editor - TipTap editor instance
+ * @returns {JSX.Element} Toolbar with formatting buttons
+ * 
+ * Button Groups:
+ * 1. Text formatting: Bold, Italic, Strikethrough, Code
+ * 2. Headings: H1, H2, H3
+ * 3. Lists: Bullet, Numbered, Task
+ * 4. Blocks: Blockquote, Code block
+ * 5. Links: Insert/edit link
+ * 6. History: Undo, Redo
+ * 7. Utilities: Clear formatting
+ */
 function MenuBar({ editor }: MenuBarProps) {
   if (!editor) {
     return null;

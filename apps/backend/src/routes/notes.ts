@@ -3,6 +3,7 @@ import { createNoteSchema, updateNoteSchema } from "@notes/types";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { sanitizeMarkdown, sanitizeHtml } from "../middleware/sanitize";
+import { suggestTags, normalizeTags } from "../utils/smartTags";
 
 const router: Router = Router();
 
@@ -182,6 +183,27 @@ router.patch("/:id", async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         error: "Note not found",
+      });
+    }
+
+    // Create version before updating (if content or title changed)
+    if (parsed.data.content || parsed.data.title) {
+      // Get current version count
+      const versionCount = await prisma.noteVersion.count({
+        where: { noteId: id },
+      });
+
+      // Save current version
+      await prisma.noteVersion.create({
+        data: {
+          noteId: id,
+          title: existingNote.title,
+          content: existingNote.content,
+          contentFormat: existingNote.contentFormat,
+          tags: existingNote.tags,
+          version: versionCount + 1,
+          createdBy: userId,
+        },
       });
     }
 
@@ -465,6 +487,261 @@ router.delete("/:id/permanent", async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: "Failed to delete note",
+    });
+  }
+});
+
+/**
+ * GET /api/notes/:id/versions - Get complete version history for a note
+ * 
+ * @route GET /api/notes/:id/versions
+ * @access Private - Requires authentication and note ownership
+ * @param {string} id - Note ID from URL params
+ * @returns {Object} 200 - Array of version objects, sorted by version number (newest first)
+ * @returns {Object} 404 - Note not found or access denied
+ * @returns {Object} 500 - Server error
+ * 
+ * Each version includes:
+ * - Version number (incremental)
+ * - Complete snapshot of title, content, and tags at that point
+ * - Timestamp of when version was created
+ * - User who created the version
+ * 
+ * Versions are automatically created when:
+ * - Note title or content is updated
+ * - Note is restored from a previous version (saves current state first)
+ * 
+ * @example
+ * // Success response:
+ * {
+ *   "success": true,
+ *   "data": [{
+ *     "id": "ver123",
+ *     "noteId": "note123",
+ *     "version": 3,
+ *     "title": "My Note",
+ *     "content": "Updated content...",
+ *     "contentFormat": "html",
+ *     "tags": ["tag1", "tag2"],
+ *     "createdAt": "2024-12-13T10:00:00Z"
+ *   }]
+ * }
+ */
+router.get("/:id/versions", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.session.user!.id;
+
+    // Verify ownership or shared access
+    const note = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+
+    if (!note) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found",
+      });
+    }
+
+    const versions = await prisma.noteVersion.findMany({
+      where: { noteId: id },
+      orderBy: { version: "desc" },
+    });
+
+    res.json({
+      success: true,
+      data: versions,
+    });
+  } catch (error) {
+    console.error("Get versions error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch versions",
+    });
+  }
+});
+
+/**
+ * POST /api/notes/:id/restore/:versionId - Restore note to a previous version
+ * 
+ * @route POST /api/notes/:id/restore/:versionId
+ * @access Private - Requires authentication and note ownership
+ * @param {string} id - Note ID from URL params
+ * @param {string} versionId - Version ID to restore from URL params
+ * @returns {Object} 200 - Restored note object with success message
+ * @returns {Object} 404 - Note or version not found
+ * @returns {Object} 500 - Server error
+ * 
+ * Process:
+ * 1. Validates note ownership and version existence
+ * 2. Saves current note state as a new version (preserves current work)
+ * 3. Restores note to selected version's title, content, and tags
+ * 4. Returns updated note object
+ * 
+ * Safety:
+ * - Current state is ALWAYS saved before restore (no data loss)
+ * - Version number increments with each save
+ * - Original version remains in history
+ * 
+ * @example
+ * // Success response:
+ * {
+ *   "success": true,
+ *   "data": { ...restoredNoteObject },
+ *   "message": "Restored to version 2"
+ * }
+ */
+router.post("/:id/restore/:versionId", async (req: Request, res: Response) => {
+  try {
+    const { id, versionId } = req.params;
+    const userId = req.session.user!.id;
+
+    // Verify ownership
+    const note = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+
+    if (!note) {
+      return res.status(404).json({
+        success: false,
+        error: "Note not found",
+      });
+    }
+
+    // Get version to restore
+    const version = await prisma.noteVersion.findUnique({
+      where: { id: versionId },
+    });
+
+    if (!version || version.noteId !== id) {
+      return res.status(404).json({
+        success: false,
+        error: "Version not found",
+      });
+    }
+
+    // Save current state as a version before restoring
+    const versionCount = await prisma.noteVersion.count({
+      where: { noteId: id },
+    });
+
+    await prisma.noteVersion.create({
+      data: {
+        noteId: id,
+        title: note.title,
+        content: note.content,
+        contentFormat: note.contentFormat,
+        tags: note.tags,
+        version: versionCount + 1,
+        createdBy: userId,
+      },
+    });
+
+    // Restore the version
+    const restoredNote = await prisma.note.update({
+      where: { id },
+      data: {
+        title: version.title,
+        content: version.content,
+        contentFormat: version.contentFormat,
+        tags: version.tags,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: restoredNote,
+      message: `Restored to version ${version.version}`,
+    });
+  } catch (error) {
+    console.error("Restore version error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to restore version",
+    });
+  }
+});
+
+/**
+ * POST /api/notes/suggest-tags - Generate intelligent tag suggestions
+ * 
+ * @route POST /api/notes/suggest-tags
+ * @access Private - Requires authentication
+ * @body {Object} Note content for analysis
+ * @param {string} [body.title] - Note title to analyze
+ * @param {string} [body.content] - Note content to analyze
+ * @param {string[]} [body.existingTags] - Tags already applied (excluded from suggestions)
+ * @returns {Object} 200 - Suggested tags and all user's existing tags
+ * @returns {Object} 400 - Neither title nor content provided
+ * @returns {Object} 500 - Server error
+ * 
+ * Algorithm analyzes:
+ * 1. Hashtags in content (#tag) - highest priority
+ * 2. Technical/programming keywords (50+ terms)
+ * 3. Frequently occurring words in title (weighted)
+ * 4. Frequently occurring words in content (2+ occurrences)
+ * 5. Capitalized words (potential proper nouns)
+ * 
+ * Response includes:
+ * - suggestions: Array of 8 smart tag suggestions (normalized, sorted by relevance)
+ * - userTags: All unique tags user has used across all notes (for autocomplete)
+ * 
+ * @example
+ * // Request body:
+ * {
+ *   "title": "Building React Apps",
+ *   "content": "Learn #javascript and #react for web development...",
+ *   "existingTags": ["tutorial"]
+ * }
+ * 
+ * // Success response:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "suggestions": ["javascript", "react", "web", "building", "development"],
+ *     "userTags": ["javascript", "react", "tutorial", "web", ...]
+ *   }
+ * }
+ */
+router.post("/suggest-tags", async (req: Request, res: Response) => {
+  try {
+    const { title, content, existingTags = [] } = req.body;
+
+    if (!title && !content) {
+      return res.status(400).json({
+        success: false,
+        error: "Title or content is required",
+      });
+    }
+
+    const suggestions = suggestTags(
+      title || "",
+      content || "",
+      existingTags,
+      8 // Get more suggestions
+    );
+
+    // Get all user's tags for related suggestions
+    const userNotes = await prisma.note.findMany({
+      where: { userId: req.session.user!.id },
+      select: { tags: true },
+    });
+
+    const allUserTags = userNotes.flatMap((note) => note.tags);
+
+    res.json({
+      success: true,
+      data: {
+        suggestions: normalizeTags(suggestions),
+        userTags: [...new Set(allUserTags)].sort(),
+      },
+    });
+  } catch (error) {
+    console.error("Smart tags error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate tag suggestions",
     });
   }
 });
