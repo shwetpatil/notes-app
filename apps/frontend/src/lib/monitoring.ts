@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { logger, perfLogger, apiLogger, logPerformance } from './logger';
 
 interface PerformanceMetric {
   name: string;
@@ -52,17 +53,14 @@ function reportWebVital(metric: PerformanceMetric) {
   }).catch((error) => {
     // Silently fail in production
     if (process.env.NODE_ENV === 'development') {
-      console.error('Failed to report web vital:', error);
+      logger.error('Failed to report web vital', error);
     }
   });
 
   // Log in development
   if (process.env.NODE_ENV === 'development') {
-    const color = metric.rating === 'good' ? 'green' : metric.rating === 'needs-improvement' ? 'orange' : 'red';
-    console.log(
-      `%c🎯 [Web Vital] ${metric.name}: ${Math.round(metric.value)}ms (${metric.rating})`,
-      `color: ${color}; font-weight: bold;`
-    );
+    const logFn = metric.rating === 'good' ? perfLogger.success : metric.rating === 'needs-improvement' ? perfLogger.warn : perfLogger.error;
+    logFn(`🎯 Web Vital ${metric.name}: ${Math.round(metric.value)}ms`, { rating: metric.rating });
   }
 }
 
@@ -206,7 +204,7 @@ export function trackPerformance(name: string, startMark?: string) {
       const measure = performance.getEntriesByName(name, 'measure')[0];
       
       if (measure) {
-        console.log(`⏱️  [Performance] ${name}: ${Math.round(measure.duration)}ms`);
+        logPerformance(name, measure.duration);
       }
     } else {
       performance.mark(name);
@@ -241,7 +239,7 @@ export function trackPerformance(name: string, startMark?: string) {
  */
 export function trackUserAction(action: string, target?: string) {
   if (process.env.NODE_ENV === 'development') {
-    console.log(`👆 [User Action] ${action}${target ? ` on ${target}` : ''}`);
+    logger.debug({ action, target }, '👆 User action');
   }
 
   // In production, send to analytics service
@@ -283,11 +281,8 @@ export function trackAPICall(
   const rating = duration < 300 ? 'good' : duration < 1000 ? 'needs-improvement' : 'poor';
   
   if (process.env.NODE_ENV === 'development') {
-    const color = rating === 'good' ? 'green' : rating === 'needs-improvement' ? 'orange' : 'red';
-    console.log(
-      `%c🌐 [API] ${method} ${endpoint}: ${duration}ms (${status})`,
-      `color: ${color};`
-    );
+    const logFn = rating === 'good' ? apiLogger.success : rating === 'needs-improvement' ? apiLogger.warn : apiLogger.error;
+    logFn(`🌐 ${method} ${endpoint}`, { duration: `${duration}ms`, status, rating });
   }
 
   // In production, aggregate and send to monitoring service

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { APIMetrics } from "@notes/types";
+import { logger } from "../config";
 
 interface RequestTiming {
   startTime: number;
@@ -138,23 +139,33 @@ function logMetrics(metrics: APIMetrics, cpuUsage: NodeJS.CpuUsage) {
 
   // Detailed logging
   if (process.env.ENABLE_PERFORMANCE_LOGGING === "true") {
-    console.log(
-      `${color}📊 [Performance]${reset} ${metrics.method} ${metrics.path} - ${metrics.statusCode} - ${metrics.duration}ms (${rating})`
-    );
+    logger.debug({
+      method: metrics.method,
+      path: metrics.path,
+      statusCode: metrics.statusCode,
+      duration: metrics.duration,
+      rating
+    }, `📊 Performance: ${metrics.method} ${metrics.path}`);
 
     // Log slow requests
     if (metrics.duration > 1000) {
-      console.warn(
-        `⚠️  [Slow Request] ${metrics.method} ${metrics.path} took ${metrics.duration}ms`
-      );
-      console.warn(`   CPU: user=${cpuUsage.user}μs, system=${cpuUsage.system}μs`);
+      logger.warn({
+        method: metrics.method,
+        path: metrics.path,
+        duration: metrics.duration,
+        cpuUser: cpuUsage.user,
+        cpuSystem: cpuUsage.system
+      }, '⚠️  Slow request detected');
     }
 
     // Log errors
     if (metrics.statusCode >= 500) {
-      console.error(
-        `❌ [Server Error] ${metrics.method} ${metrics.path} - ${metrics.statusCode}: ${metrics.error}`
-      );
+      logger.error({
+        method: metrics.method,
+        path: metrics.path,
+        statusCode: metrics.statusCode,
+        error: metrics.error
+      }, '❌ Server error');
     }
   }
 

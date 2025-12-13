@@ -22,6 +22,7 @@ import {
   clusterConfig,
   monitoringConfig,
   appConfig,
+  logger,
 } from "./config";
 
 const app: Express = express();
@@ -132,18 +133,18 @@ if (!clusterConfig.enabled || require("cluster").isWorker) {
       server = https.createServer(options, app);
       server.listen(serverConfig.port, () => {
         const pid = process.pid;
-        console.log(`🔒 HTTPS Backend server running on https://localhost:${serverConfig.port} (PID: ${pid})`);
-        console.log(`📝 Environment: ${appConfig.nodeEnv}`);
+        logger.info({ port: serverConfig.port, pid, protocol: 'https' }, '🔒 HTTPS Backend server running');
+        logger.info({ environment: appConfig.nodeEnv }, '📝 Environment');
         if (clusterConfig.enabled) {
-          console.log(`👷 Worker process ${pid} ready`);
+          logger.info({ pid }, '👷 Worker process ready');
         }
       });
     } catch (error) {
-      console.error("❌ Failed to start HTTPS server:", error);
-      console.log("⚠️  Falling back to HTTP...");
+      logger.error({ err: error }, "❌ Failed to start HTTPS server");
+      logger.warn("⚠️  Falling back to HTTP...");
       server = http.createServer(app);
       server.listen(serverConfig.port, () => {
-        console.log(`⚡ HTTP Backend server running on http://localhost:${serverConfig.port}`);
+        logger.info({ port: serverConfig.port, protocol: 'http' }, '⚡ HTTP Backend server running');
       });
     }
   } else {
@@ -151,10 +152,10 @@ if (!clusterConfig.enabled || require("cluster").isWorker) {
     server = http.createServer(app);
     server.listen(serverConfig.port, () => {
       const pid = process.pid;
-      console.log(`⚡ Backend server running on http://localhost:${serverConfig.port} (PID: ${pid})`);
-      console.log(`📝 Environment: ${appConfig.nodeEnv}`);
+      logger.info({ port: serverConfig.port, pid, protocol: 'http' }, '⚡ Backend server running');
+      logger.info({ environment: appConfig.nodeEnv }, '📝 Environment');
       if (clusterConfig.enabled) {
-        console.log(`👷 Worker process ${pid} ready`);
+        logger.info({ pid }, '👷 Worker process ready');
       }
     });
   }
@@ -162,9 +163,9 @@ if (!clusterConfig.enabled || require("cluster").isWorker) {
   // Graceful shutdown
   if (!clusterConfig.enabled) {
     const gracefulShutdown = () => {
-      console.log("\n🛑 Received shutdown signal, closing server gracefully...");
+      logger.info("🛑 Received shutdown signal, closing server gracefully...");
       server.close(() => {
-        console.log("✅ Server closed");
+        logger.info("✅ Server closed");
         process.exit(0);
       });
     };

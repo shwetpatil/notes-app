@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { authApi } from "@/lib/api";
 import { Button, Input, Card } from "@notes/ui-lib";
+import { logError } from "@/lib/logger";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function RegisterPage() {
       router.push("/notes");
     },
     onError: (err: any) => {
-      console.error("Registration error:", err);
+      logError("Registration failed", err, { email });
       const errorMessage = err.response?.data?.error || err.message || "Registration failed";
       setError(errorMessage);
     },

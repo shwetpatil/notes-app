@@ -1,5 +1,5 @@
 import cluster from "cluster";
-import { clusterConfig } from "./config";
+import { clusterConfig, logger } from "./config";
 
 const workers = Math.min(clusterConfig.maxWorkers, clusterConfig.numCPUs);
 
@@ -9,8 +9,8 @@ const workers = Math.min(clusterConfig.maxWorkers, clusterConfig.numCPUs);
  */
 export function startCluster() {
   if (cluster.isPrimary) {
-    console.log(`🚀 Starting cluster with ${workers} workers (${clusterConfig.numCPUs} CPUs available)`);
-    console.log(`📊 Master process ${process.pid} is running`);
+    logger.info({ workers, cpus: clusterConfig.numCPUs }, '🚀 Starting cluster');
+    logger.info({ pid: process.pid }, '📊 Master process running');
 
     // Track worker restarts to prevent restart loops
     const restartCounts = new Map<number, number>();
@@ -20,26 +20,26 @@ export function startCluster() {
     // Fork workers
     for (let i = 0; i < workers; i++) {
       const worker = cluster.fork();
-      console.log(`✅ Worker ${worker.process.pid} started`);
+      logger.info({ pid: worker.process.pid, workerId: worker.id }, '✅ Worker started');
     }
 
     // Handle worker exit and restart
     cluster.on("exit", (worker, code, signal) => {
       const pid = worker.process.pid;
-      console.log(`⚠️  Worker ${pid} died (${signal || code})`);
+      logger.warn({ pid, code, signal, workerId: worker.id }, '⚠️  Worker died');
 
       // Track restart count
       const now = Date.now();
       const workerRestarts = restartCounts.get(worker.id) || 0;
       
       if (workerRestarts >= RESTART_THRESHOLD) {
-        console.error(`❌ Worker ${pid} has been restarted ${workerRestarts} times. Not restarting.`);
+        logger.error({ pid, restarts: workerRestarts }, '❌ Worker restart limit exceeded');
         return;
       }
 
       // Restart worker
       const newWorker = cluster.fork();
-      console.log(`🔄 Restarting worker... New worker ${newWorker.process.pid} started`);
+      logger.info({ oldPid: pid, newPid: newWorker.process.pid, workerId: newWorker.id }, '🔄 Worker restarted');
       
       restartCounts.set(newWorker.id, workerRestarts + 1);
 
@@ -51,23 +51,23 @@ export function startCluster() {
 
     // Handle worker online event
     cluster.on("online", (worker) => {
-      console.log(`💚 Worker ${worker.process.pid} is online`);
+      logger.info({ pid: worker.process.pid, workerId: worker.id }, '💚 Worker online');
     });
 
     // Graceful shutdown
     const shutdown = () => {
-      console.log("\n🛑 Shutting down cluster...");
+      logger.info('🛑 Shutting down cluster');
       
       for (const id in cluster.workers) {
         const worker = cluster.workers[id];
         if (worker) {
-          console.log(`Sending shutdown signal to worker ${worker.process.pid}`);
+          logger.info({ pid: worker.process.pid, workerId: worker.id }, 'Sending shutdown signal to worker');
           worker.send("shutdown");
           
           // Force kill after timeout
           setTimeout(() => {
             if (!worker.isDead()) {
-              console.log(`Force killing worker ${worker.process.pid}`);
+              logger.warn({ pid: worker.process.pid }, 'Force killing worker');
               worker.kill();
             }
           }, 10000); // 10 second timeout
@@ -76,7 +76,7 @@ export function startCluster() {
 
       // Exit master process after all workers are done
       setTimeout(() => {
-        console.log("👋 Master process exiting");
+        logger.info('👋 Master process exiting');
         process.exit(0);
       }, 12000);
     };
@@ -88,7 +88,9 @@ export function startCluster() {
     if (clusterConfig.memory.enabled) {
       setInterval(() => {
         const used = process.memoryUsage();
-        console.log(`📊 Master Memory Usage: RSS=${Math.round(used.rss / 1024 / 1024)}MB, Heap=${Math.round(used.heapUsed / 1024 / 1024)}MB`);
+        const rssMB = Math.round(used.rss / 1024 / 1024);
+        const heapMB = Math.round(used.heapUsed / 1024 / 1024);
+        logger.debug({ rss: rssMB, heap: heapMB, unit: 'MB' }, '📊 Master memory usage');
       }, 60000); // Every minute
     }
   } else {
@@ -98,7 +100,7 @@ export function startCluster() {
     // Handle shutdown message from master
     process.on("message", (msg) => {
       if (msg === "shutdown") {
-        console.log(`Worker ${process.pid} received shutdown signal`);
+        logger.info({ pid: process.pid }, 'Worker received shutdown signal');
         // Perform graceful shutdown
         setTimeout(() => {
           process.exit(0);
@@ -113,11 +115,11 @@ export function startCluster() {
         const heapUsedMB = Math.round(used.heapUsed / 1024 / 1024);
         const rssMB = Math.round(used.rss / 1024 / 1024);
         
-        console.log(`📊 Worker ${process.pid} Memory: RSS=${rssMB}MB, Heap=${heapUsedMB}MB`);
+        logger.debug({ pid: process.pid, rss: rssMB, heap: heapUsedMB, unit: 'MB' }, '📊 Worker memory usage');
         
         // Alert if memory exceeds threshold
         if (rssMB > clusterConfig.memory.thresholdMB) {
-          console.warn(`⚠️  Worker ${process.pid} memory usage (${rssMB}MB) exceeds threshold (${clusterConfig.memory.thresholdMB}MB)`);
+          logger.warn({ pid: process.pid, rss: rssMB, threshold: clusterConfig.memory.thresholdMB, unit: 'MB' }, '⚠️  Worker memory threshold exceeded');
         }
       }, 60000);
     }

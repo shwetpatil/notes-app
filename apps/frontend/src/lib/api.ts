@@ -1,6 +1,7 @@
 import axios from "axios";
 import { Note, CreateNoteInput, UpdateNoteInput, LoginInput, ApiResponse, Template, CreateTemplateInput, UpdateTemplateInput } from "@notes/types";
 import { trackAPICall } from "./monitoring";
+import { logApiRequest, apiLogger } from "./logger";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -61,20 +62,24 @@ apiClient.interceptors.response.use(
     // Track failed API calls
     const config = error.config as any;
     const duration = config?.metadata ? Date.now() - config.metadata.startTime : 0;
+    const status = error.response?.status || 0;
+    
     trackAPICall(
       config?.method?.toUpperCase() || 'GET',
       config?.url || '',
       duration,
-      error.response?.status || 0
+      status
     );
 
-    console.error("API Error:", {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
+    // Log with structured logging
+    logApiRequest(
+      config?.method?.toUpperCase() || 'GET',
+      config?.url || '',
+      status,
+      duration,
+      error
+    );
+    
     return Promise.reject(error);
   }
 );

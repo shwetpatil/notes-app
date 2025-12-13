@@ -33,6 +33,7 @@ export { databaseConfig, prisma } from "./database.config";
 export { securityConfig } from "./security.config";
 export { clusterConfig } from "./cluster.config";
 export { monitoringConfig } from "./monitoring.config";
+export { logger, createChildLogger } from "./logger.config";
 
 /**
  * Application-wide configuration helpers

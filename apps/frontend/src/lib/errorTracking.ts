@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { logger, logError } from './logger';
 
 /**
  * Client-side error boundary and global error handler
@@ -9,7 +10,7 @@ export function useErrorTracking() {
   useEffect(() => {
     // Track unhandled promise rejections
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('❌ [Unhandled Rejection]', event.reason);
+      logError('❌ Unhandled Promise Rejection', event.reason);
       
       // In production, send to error tracking service
       if (process.env.NODE_ENV === 'production') {
@@ -19,7 +20,7 @@ export function useErrorTracking() {
 
     // Track global errors
     const handleError = (event: ErrorEvent) => {
-      console.error('❌ [Global Error]', event.error);
+      logError('❌ Global Error', event.error);
       
       // In production, send to error tracking service
       if (process.env.NODE_ENV === 'production') {
