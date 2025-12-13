@@ -12,7 +12,7 @@ export interface AnalyticsEvent {
   action: string;
   label?: string;
   value?: number;
-  custom Properties?: Record<string, any>;
+  customProperties?: Record<string, any>;
 }
 
 export interface UserProperties {

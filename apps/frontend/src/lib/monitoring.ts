@@ -12,6 +12,84 @@ interface PerformanceMetric {
   navigationType?: string;
 }
 
+interface MonitoringMetric {
+  type: string;
+  timestamp: number;
+  [key: string]: any;
+}
+
+// Metrics buffer for batch sending
+let metricsBuffer: MonitoringMetric[] = [];
+const BATCH_SIZE = 10;
+const BATCH_INTERVAL = 30000; // 30 seconds
+
+/**
+ * Send metrics to monitoring service in production
+ * Batches metrics for efficiency and sends to Sentry or custom endpoint
+ */
+function sendMetricToMonitoring(metric: MonitoringMetric) {
+  metricsBuffer.push(metric);
+  
+  // Send batch when buffer is full
+  if (metricsBuffer.length >= BATCH_SIZE) {
+    flushMetrics();
+  }
+}
+
+/**
+ * Flush all buffered metrics to monitoring service
+ */
+function flushMetrics() {
+  if (metricsBuffer.length === 0) return;
+  
+  const metrics = [...metricsBuffer];
+  metricsBuffer = [];
+  
+  // Send to Sentry as breadcrumbs or custom context
+  if (typeof window !== 'undefined' && (window as any).Sentry) {
+    const Sentry = (window as any).Sentry;
+    
+    metrics.forEach(metric => {
+      Sentry.addBreadcrumb({
+        category: 'performance',
+        message: `${metric.type}: ${JSON.stringify(metric)}`,
+        level: 'info',
+        data: metric,
+      });
+    });
+  }
+  
+  // Send to custom monitoring endpoint
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  
+  fetch(`${apiUrl}/api/metrics/batch`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ metrics }),
+    keepalive: true,
+  }).catch((error) => {
+    // Silently fail in production
+    if (process.env.NODE_ENV === 'development') {
+      logger.error('Failed to send metrics batch', error);
+    }
+  });
+}
+
+// Flush metrics periodically
+if (typeof window !== 'undefined') {
+  setInterval(flushMetrics, BATCH_INTERVAL);
+  
+  // Flush on page unload
+  window.addEventListener('beforeunload', flushMetrics);
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushMetrics();
+    }
+  });
+}
+
 /**
  * Reports Core Web Vitals metrics to backend analytics endpoint
  * Silently fails in production to avoid disrupting user experience
@@ -249,6 +327,18 @@ export function trackUserAction(action: string, target?: string) {
         action,
         label: target,
       });
+    }).catch(() => {
+      // Silent fail - don't break app if analytics unavailable
+    });
+  }
+
+  // Production: Aggregate metrics
+  if (process.env.NODE_ENV === 'production') {
+    sendMetricToMonitoring({
+      type: 'user_action',
+      action,
+      target,
+      timestamp: Date.now(),
     });
   }
 }
@@ -277,7 +367,7 @@ export function trackUserAction(action: string, target?: string) {
  * trackAPICall('GET', '/api/notes', Date.now() - startTime, response.status);
  * // Console: "🌐 [API] GET /api/notes: 145ms (200)" in green
  * 
- * @todo Aggregate metrics and send to monitoring service in production
+ * Metrics are aggregated and sent to monitoring service in production
  */
 export function trackAPICall(
   method: string,
@@ -292,5 +382,23 @@ export function trackAPICall(
     logFn(`🌐 ${method} ${endpoint}`, { duration: `${duration}ms`, status, rating });
   }
 
-  // In production, aggregate and send to monitoring service
+  // Production: Send to monitoring service
+  if (process.env.NODE_ENV === 'production') {
+    sendMetricToMonitoring({
+      type: 'api_call',
+      method,
+      endpoint,
+      duration,
+      status,
+      rating,
+      timestamp: Date.now(),
+    });
+    
+    // Track in analytics
+    import('./analytics').then(({ analyticsService }) => {
+      analyticsService.trackAPIPerformance(endpoint, duration, status === 200);
+    }).catch(() => {
+      // Silent fail - don't break app if analytics unavailable
+    });
+  }
 }

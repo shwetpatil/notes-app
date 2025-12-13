@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@notes/ui-lib";
 import { useTheme } from "@/context/ThemeContext";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 interface SidebarProps {
   user: { name: string; email: string };
@@ -61,6 +62,11 @@ export function Sidebar({ user, onLogout, onRefresh }: SidebarProps) {
           <Button variant="secondary" size="sm" onClick={onRefresh} className="w-full">
             🔄 Sync Notes
           </Button>
+        </div>
+
+        <div className="mt-4">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Language</h2>
+          <LanguageSwitcher />
         </div>
       </div>
 
