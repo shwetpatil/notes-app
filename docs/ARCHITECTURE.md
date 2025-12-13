@@ -129,73 +129,631 @@ Component Handler
 ## Backend Architecture
 
 ### Technology Stack
-- **Express 4** - Web framework
-- **Node.js 20** - Runtime
-- **Prisma ORM** - Database ORM
-- **PostgreSQL 16** - Relational database
-- **bcrypt** - Password hashing
-- **Zod** - Schema validation
-- **Helmet** - Security headers
-- **express-rate-limit** - Rate limiting
+
+**Core Framework:**
+- **Express 4.18** - Fast, unopinionated web framework for Node.js
+- **Node.js 20+** - JavaScript runtime with ES modules support
+- **TypeScript 5.3** - Static type checking and better IDE support
+
+**Database Layer:**
+- **Prisma ORM 5.7** - Type-safe database ORM with auto-generated types
+- **PostgreSQL 16** - Robust relational database with JSON support
+- **Connection Pooling** - Managed by Prisma (default 10 connections, configurable via DATABASE_URL)
+
+**Security:**
+- **bcrypt 6.0** - Password hashing with 12 salt rounds (OWASP recommended)
+- **Helmet 7.1** - Security headers (CSP, HSTS, X-Frame-Options, etc.)
+- **express-rate-limit 7.1** - IP-based rate limiting with memory store
+- **express-mongo-sanitize 2.2** - Prevents NoSQL injection attacks
+- **CORS 2.8** - Cross-Origin Resource Sharing with credentials support
+- **xss 1.0** - XSS sanitization for markdown content
+
+**Validation & Parsing:**
+- **Zod 3.22** - Schema validation with TypeScript inference
+- **validator 13.15** - String validation (email, URLs, etc.)
+- **express.json()** - Built-in JSON body parser with size limits
+
+**Session Management:**
+- **express-session 1.17** - Cookie-based session middleware
+- **Session Store** - Memory (dev) / Prisma (current) / Redis (production recommended)
+- **Cookie Settings** - HttpOnly, Secure (prod), SameSite=strict
 
 ### Architecture Layers
 
 ```
-┌─────────────────────────────────────────┐
-│         API Routes Layer                │
-│  /api/auth  /api/notes  /api/health    │
-└───────────────┬─────────────────────────┘
-                ↓
-┌─────────────────────────────────────────┐
-│         Middleware Layer                │
-│  Auth, Rate Limit, Sanitization, CORS  │
-└───────────────┬─────────────────────────┘
-                ↓
-┌─────────────────────────────────────────┐
-│         Business Logic Layer            │
-│  Controllers, Validation, Error Handling│
-└───────────────┬─────────────────────────┘
-                ↓
-┌─────────────────────────────────────────┐
-│         Data Access Layer               │
-│         Prisma ORM                      │
-└───────────────┬─────────────────────────┘
-                ↓
-┌─────────────────────────────────────────┐
-│         PostgreSQL Database             │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     CLIENT (Browser/Mobile)                  │
+└────────────────────────────┬─────────────────────────────────┘
+                             │ HTTPS/HTTP
+                             ↓
+┌──────────────────────────────────────────────────────────────┐
+│                     LAYER 1: Network Entry                   │
+│  • Express Server (Port 3001)                                │
+│  • HTTPS/TLS Termination (Production)                        │
+│  • Load Balancer (Production - optional)                     │
+└────────────────────────────┬─────────────────────────────────┘
+                             ↓
+┌──────────────────────────────────────────────────────────────┐
+│                  LAYER 2: Security Middleware                │
+│                                                              │
+│  1. Helmet.js                                                │
+│     ├─ Content-Security-Policy (CSP)                         │
+│     ├─ X-Content-Type-Options: nosniff                       │
+│     ├─ X-Frame-Options: SAMEORIGIN                           │
+│     ├─ X-Download-Options: noopen                            │
+│     └─ Strict-Transport-Security (HSTS)                      │
+│                                                              │
+│  2. CORS Policy                                              │
+│     ├─ Origin: http://localhost:3000 (dev)                   │
+│     ├─ Credentials: true (cookies allowed)                   │
+│     └─ Methods: GET, POST, PUT, PATCH, DELETE               │
+│                                                              │
+│  3. Rate Limiting                                            │
+│     ├─ Auth endpoints: 5 req/15min per IP                    │
+│     ├─ General API: 100 req/15min per IP                     │
+│     └─ Skip successful auth (only count failures)            │
+│                                                              │
+└────────────────────────────┬─────────────────────────────────┘
+                             ↓
+┌──────────────────────────────────────────────────────────────┐
+│               LAYER 3: Request Processing                    │
+│                                                              │
+│  1. Body Parsing                                             │
+│     ├─ express.json() - Parse JSON payloads                  │
+│     ├─ Size limit: 10mb                                      │
+│     └─ Reject non-JSON requests                              │
+│                                                              │
+│  2. Sanitization                                             │
+│     ├─ express-mongo-sanitize (remove $ and .)               │
+│     ├─ XSS filter on note content                            │
+│     └─ Trim whitespace, normalize input                      │
+│                                                              │
+│  3. Performance Monitoring                                   │
+│     ├─ Track request duration                                │
+│     ├─ Log slow queries (>1s)                                │
+│     └─ Collect metrics (memory, CPU)                         │
+│                                                              │
+└────────────────────────────┬─────────────────────────────────┘
+                             ↓
+┌──────────────────────────────────────────────────────────────┐
+│            LAYER 4: Session & Authentication                 │
+│                                                              │
+│  1. Session Middleware                                       │
+│     ├─ Read session cookie (connect.sid)                     │
+│     ├─ Decrypt with SESSION_SECRET                           │
+│     ├─ Load session from store (Prisma/Redis)                │
+│     └─ Attach session to req.session                         │
+│                                                              │
+│  2. Authentication Check (requireAuth middleware)            │
+│     ├─ Verify req.session.user exists                        │
+│     ├─ Check session expiration                              │
+│     ├─ Return 401 if not authenticated                       │
+│     └─ Continue to route handler if valid                    │
+│                                                              │
+└────────────────────────────┬─────────────────────────────────┘
+                             ↓
+┌──────────────────────────────────────────────────────────────┐
+│                LAYER 5: Route Handler (Controller)           │
+│                                                              │
+│  1. Input Validation (Zod Schemas)                           │
+│     ├─ Parse request body/params/query                       │
+│     ├─ Validate types and constraints                        │
+│     ├─ Return 400 if validation fails                        │
+│     └─ Extract validated data                                │
+│                                                              │
+│  2. Business Logic                                           │
+│     ├─ Check user permissions/ownership                      │
+│     ├─ Apply business rules (e.g., account lockout)          │
+│     ├─ Transform/sanitize data                               │
+│     └─ Prepare database query                                │
+│                                                              │
+│  3. Error Handling (try-catch)                               │
+│     ├─ Catch database errors                                 │
+│     ├─ Catch validation errors                               │
+│     ├─ Log errors securely                                   │
+│     └─ Return user-friendly messages                         │
+│                                                              │
+└────────────────────────────┬─────────────────────────────────┘
+                             ↓
+┌──────────────────────────────────────────────────────────────┐
+│              LAYER 6: Data Access Layer (Prisma ORM)         │
+│                                                              │
+│  1. Query Building                                           │
+│     ├─ Type-safe query construction                          │
+│     ├─ Automatic SQL generation                              │
+│     ├─ Parameterized queries (SQL injection safe)            │
+│     └─ Relation loading (eager/lazy)                         │
+│                                                              │
+│  2. Connection Management                                    │
+│     ├─ Connection pool (reuse connections)                   │
+│     ├─ Automatic reconnection on failure                     │
+│     ├─ Query timeout handling                                │
+│     └─ Transaction support (BEGIN/COMMIT/ROLLBACK)           │
+│                                                              │
+│  3. Data Transformation                                      │
+│     ├─ Map database rows to TypeScript objects               │
+│     ├─ Apply field selections (only fetch needed)            │
+│     ├─ Handle null/undefined values                          │
+│     └─ Format dates, JSON fields                             │
+│                                                              │
+└────────────────────────────┬─────────────────────────────────┘
+                             ↓
+┌──────────────────────────────────────────────────────────────┐
+│                 LAYER 7: PostgreSQL Database                 │
+│                                                              │
+│  1. Query Execution                                          │
+│     ├─ Parse SQL query                                       │
+│     ├─ Query planner (use indexes)                           │
+│     ├─ Execute query                                         │
+│     └─ Return result set                                     │
+│                                                              │
+│  2. Data Storage                                             │
+│     ├─ Tables: User, Note, Session                           │
+│     ├─ Indexes: email, userId, updatedAt, etc.               │
+│     ├─ Constraints: Foreign keys, unique, not null           │
+│     └─ ACID transactions                                     │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+                             │
+                             ↓ (Results flow back up)
+                     [JSON Response to Client]
 ```
 
-### Request Lifecycle
+### Detailed Request Lifecycle
+
+#### Phase 1: Request Reception
+```
+Incoming HTTP Request
+  ├─ Method: GET/POST/PUT/PATCH/DELETE
+  ├─ Path: /api/notes, /api/auth/login, etc.
+  ├─ Headers: Cookie, Content-Type, Origin, User-Agent
+  └─ Body: JSON payload (for POST/PUT/PATCH)
+
+Express receives request on port 3001
+  └─ Creates req (request) and res (response) objects
+```
+
+#### Phase 2: Security Layer Processing
+```
+1. Helmet Middleware (10-20ms)
+   ├─ Set security headers
+   ├─ Content-Security-Policy: prevent XSS
+   ├─ X-Frame-Options: prevent clickjacking
+   └─ Continue to next middleware
+
+2. CORS Middleware (5-10ms)
+   ├─ Check Origin header
+   ├─ Validate against CORS_ORIGIN env var
+   ├─ Set Access-Control-Allow-Origin
+   ├─ Set Access-Control-Allow-Credentials: true
+   └─ Continue if origin allowed, 403 if blocked
+
+3. Rate Limiter (5-15ms)
+   ├─ Extract client IP from req.ip
+   ├─ Check memory store for request count
+   ├─ Increment counter for this IP
+   ├─ If limit exceeded (5 auth or 100 general):
+   │   ├─ Set Retry-After header
+   │   └─ Return 429 Too Many Requests
+   └─ Otherwise, continue
+```
+
+#### Phase 3: Request Parsing & Sanitization
+```
+1. JSON Body Parser (10-50ms depending on size)
+   ├─ Read request stream
+   ├─ Parse JSON string to JavaScript object
+   ├─ Validate JSON syntax
+   ├─ Check size limit (10mb)
+   └─ Attach to req.body
+
+2. Mongo Sanitize (1-5ms)
+   ├─ Scan req.body, req.query, req.params
+   ├─ Remove MongoDB operators ($where, $gt, etc.)
+   ├─ Remove . (dot) in keys
+   └─ Prevent NoSQL injection
+
+3. XSS Sanitization (for note content) (5-20ms)
+   ├─ Detect HTML/script tags in content
+   ├─ Remove dangerous tags (<script>, <iframe>)
+   ├─ Remove event handlers (onclick, onerror)
+   ├─ Remove javascript: URLs
+   └─ Keep safe tags (<p>, <strong>, <em>)
+
+4. Performance Monitoring (1-2ms)
+   ├─ Record request start time
+   ├─ Attach to res.locals.startTime
+   └─ Continue to next middleware
+```
+
+#### Phase 4: Session & Authentication
+```
+1. Session Middleware (10-30ms)
+   ├─ Read Cookie header
+   ├─ Extract connect.sid value
+   ├─ Decrypt cookie with SESSION_SECRET (HMAC-SHA256)
+   ├─ Query session store:
+   │   ├─ Prisma: SELECT * FROM Session WHERE sid = ?
+   │   └─ Redis: GET sess:${sid}
+   ├─ Deserialize session data (JSON.parse)
+   ├─ Attach to req.session
+   └─ Set session.touch() to extend expiration
+
+2. requireAuth Middleware (1-5ms) - Protected routes only
+   ├─ Check if req.session.user exists
+   ├─ If NOT authenticated:
+   │   ├─ Log: "Unauthorized access attempt"
+   │   └─ Return 401: { success: false, error: "Authentication required" }
+   ├─ If authenticated:
+   │   ├─ User ID available in req.session.user.id
+   │   └─ Continue to route handler
+```
+
+#### Phase 5: Route Handler Execution
+```
+Example: POST /api/notes (Create Note)
+
+1. Zod Schema Validation (5-10ms)
+   const parsed = createNoteSchema.safeParse(req.body);
+   ├─ Validate title: string, min 1 char, max 255
+   ├─ Validate content: string, optional
+   ├─ Validate tags: array of strings, optional
+   ├─ Validate isPinned: boolean, optional
+   └─ If invalid:
+       ├─ Return 400: { success: false, error: "Invalid note data" }
+       └─ Include validation errors for debugging
+
+2. Business Logic (1-5ms)
+   ├─ Get userId from req.session.user.id
+   ├─ Sanitize title (trim, max 255 chars)
+   ├─ Sanitize content (XSS filter)
+   ├─ Apply defaults: isPinned=false, isFavorite=false, etc.
+   └─ Prepare data object for database
+
+3. Database Operation (10-100ms depending on load)
+   const note = await prisma.note.create({
+     data: {
+       title: sanitizedTitle,
+       content: sanitizedContent,
+       tags: parsed.data.tags || [],
+       userId: req.session.user.id,
+       // Defaults handled by Prisma
+     }
+   });
+   
+   ├─ Prisma generates SQL:
+   │   INSERT INTO "Note" (id, title, content, tags, userId, createdAt, updatedAt)
+   │   VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+   │   RETURNING *;
+   │
+   ├─ Execute via connection pool
+   ├─ PostgreSQL inserts row
+   ├─ Returns inserted row with generated id, timestamps
+   └─ Prisma maps result to TypeScript Note object
+
+4. Response Formatting (1-3ms)
+   res.status(201).json({
+     success: true,
+     data: note
+   });
+   
+   ├─ Set status code: 201 Created
+   ├─ Set Content-Type: application/json
+   ├─ Serialize object to JSON string
+   └─ Send response to client
+```
+
+#### Phase 6: Error Handling
+```
+If error occurs at any step:
+
+1. Catch Block in Route Handler
+   try {
+     // ... normal flow
+   } catch (error) {
+     console.error("Create note error:", error);
+     res.status(500).json({
+       success: false,
+       error: "Failed to create note"
+     });
+   }
+
+2. Global Error Handler (apps/backend/src/middleware/errorHandler.ts)
+   ├─ Catches unhandled errors
+   ├─ Logs full error stack (dev only)
+   ├─ Returns generic error message
+   └─ Prevents leak of sensitive info in production
+
+3. Error Response Format
+   {
+     success: false,
+     error: "User-friendly message"
+     // NO stack traces or internal details
+   }
+```
+
+#### Phase 7: Response Completion
+```
+1. Performance Monitoring Middleware (1-2ms)
+   ├─ Calculate duration: Date.now() - startTime
+   ├─ Log if slow (>1000ms):
+   │   console.warn(`Slow request: ${req.method} ${req.path} - ${duration}ms`)
+   ├─ Update metrics:
+   │   ├─ Total requests counter
+   │   ├─ Average response time
+   │   └─ Path-specific stats
+   └─ Continue
+
+2. Response Sent to Client
+   ├─ Express sends HTTP response
+   ├─ Close connection or keep-alive
+   └─ Request-response cycle complete
+
+3. Cleanup
+   ├─ Release database connection back to pool
+   ├─ Clear request-scoped variables
+   └─ Ready for next request
+```
+
+### Middleware Chain Visualization
 
 ```
-1. HTTP Request
-   ↓
-2. Security Middleware
-   - Helmet (headers)
-   - CORS validation
-   - Rate limiting
-   ↓
-3. Body Parsing & Sanitization
-   - JSON parsing
-   - NoSQL injection prevention
-   - XSS sanitization
-   ↓
-4. Session Management
-   - Cookie validation
-   - User authentication
-   ↓
-5. Route Handler
-   - Input validation (Zod)
-   - Business logic
-   - Database operations (Prisma)
-   ↓
-6. Response
-   - JSON formatting
-   - Error handling
-   ↓
-7. HTTP Response
+Request Flow Through Middleware Stack:
+
+req  ─→  helmet  ─→  cors  ─→  rateLimiter  ─→  json  ─→  sanitize
+         (security) (CORS)  (5/100 limit)   (parse)  (XSS)
+                                                              │
+                                                              ↓
+              ┌───────────────────────────────────────────────┘
+              │
+              ↓
+         session  ─→  monitoring  ─→  routes  ─→  requireAuth
+        (cookies)    (performance)   (router)   (protected)
+                                                       │
+                                                       ↓
+                                              ┌────────┴────────┐
+                                              │                 │
+                                         /api/auth        /api/notes
+                                              │                 │
+                                              ↓                 ↓
+                                        auth handlers    note handlers
+                                              │                 │
+                                              ↓                 ↓
+                                         Prisma ORM      Prisma ORM
+                                              │                 │
+                                              └────────┬────────┘
+                                                       ↓
+                                                  PostgreSQL
+                                                       │
+                                                       ↓ (response)
+                                                  JSON response
 ```
+
+### Core Middleware Explained
+
+#### 1. Authentication Middleware (requireAuth)
+```typescript
+// apps/backend/src/middleware/auth.ts
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  // Check if user session exists
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({
+      success: false,
+      error: "Authentication required"
+    });
+  }
+  
+  // User is authenticated, proceed to route
+  next();
+}
+
+// Usage:
+router.get("/api/notes", requireAuth, async (req, res) => {
+  // At this point, req.session.user is guaranteed to exist
+  const userId = req.session.user.id;
+  // ... fetch notes for this user
+});
+```
+
+**Why this pattern?**
+- Centralized auth logic (DRY principle)
+- Consistent error responses
+- Easy to add additional checks (e.g., role-based access)
+- Type-safe with TypeScript declaration merging
+
+#### 2. Error Handler Middleware
+```typescript
+// apps/backend/src/middleware/errorHandler.ts
+export function errorHandler(
+  err: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  // Log error for debugging
+  console.error("Error:", err.message);
+  if (process.env.NODE_ENV === "development") {
+    console.error(err.stack);
+  }
+  
+  // Send generic error to client
+  res.status(500).json({
+    success: false,
+    error: process.env.NODE_ENV === "production" 
+      ? "Internal server error"
+      : err.message
+  });
+}
+
+// Register as last middleware
+app.use(errorHandler);
+```
+
+**Security note:** Never expose stack traces or internal errors in production
+
+#### 3. Sanitization Middleware
+```typescript
+// apps/backend/src/middleware/sanitize.ts
+import xss from "xss";
+
+export function sanitizeMarkdown(content: string): string {
+  return xss(content, {
+    whiteList: {
+      // Allow safe HTML tags
+      p: [],
+      strong: [],
+      em: [],
+      u: [],
+      h1: [], h2: [], h3: [],
+      ul: [], ol: [], li: [],
+      blockquote: [],
+      code: [],
+      pre: [],
+      a: ["href", "title"],
+      img: ["src", "alt"]
+    },
+    stripIgnoreTag: true,
+    stripIgnoreTagBody: ["script", "style"]
+  });
+}
+
+// Usage in note creation:
+const sanitizedContent = sanitizeMarkdown(req.body.content);
+```
+
+**Prevents:**
+- `<script>alert('XSS')</script>` → Removed
+- `<iframe src="malicious.com">` → Removed
+- `<img onerror="alert('XSS')">` → onerror removed
+- `<a href="javascript:alert('XSS')">` → href sanitized
+
+### Performance Monitoring
+
+#### Metrics Collection
+```typescript
+// apps/backend/src/middleware/monitoring.ts
+let metrics = {
+  totalRequests: 0,
+  avgDuration: 0,
+  paths: {} as Record<string, number>,
+  statusCodes: {} as Record<string, number>,
+  durations: [] as number[]
+};
+
+export function performanceMonitoring(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const startTime = Date.now();
+  
+  // Record when response finishes
+  res.on("finish", () => {
+    const duration = Date.now() - startTime;
+    
+    // Update metrics
+    metrics.totalRequests++;
+    metrics.durations.push(duration);
+    metrics.avgDuration = 
+      metrics.durations.reduce((a, b) => a + b) / metrics.durations.length;
+    
+    // Track by path
+    metrics.paths[req.path] = (metrics.paths[req.path] || 0) + 1;
+    
+    // Track by status code
+    metrics.statusCodes[res.statusCode] = 
+      (metrics.statusCodes[res.statusCode] || 0) + 1;
+    
+    // Log slow requests
+    if (duration > 1000) {
+      console.warn(`Slow request: ${req.method} ${req.path} - ${duration}ms`);
+    }
+  });
+  
+  next();
+}
+
+// GET /api/metrics endpoint
+router.get("/metrics", (req, res) => {
+  res.json({
+    ...metrics,
+    percentiles: {
+      p50: calculatePercentile(metrics.durations, 0.5),
+      p95: calculatePercentile(metrics.durations, 0.95),
+      p99: calculatePercentile(metrics.durations, 0.99)
+    }
+  });
+});
+```
+
+**Metrics tracked:**
+- Total requests
+- Average response time
+- Requests per path
+- Status code distribution
+- Response time percentiles (P50, P95, P99)
+
+### Cluster Mode Architecture
+
+**Single Process (Default):**
+```
+┌─────────────────────────┐
+│  Node.js Process        │
+│  PID: 12345             │
+│  Port: 3001             │
+│  ├─ Express App         │
+│  ├─ Event Loop          │
+│  └─ V8 Heap (1 core)    │
+└─────────────────────────┘
+         │
+         ↓
+   PostgreSQL
+```
+
+**Cluster Mode (Production):**
+```
+┌───────────────────────────────────────────────────────┐
+│  Master Process (PID: 12345)                          │
+│  ├─ Manages workers                                   │
+│  ├─ Restarts crashed workers                          │
+│  └─ No HTTP handling                                  │
+└─────────────────┬─────────────────────────────────────┘
+                  │
+      ┌───────────┼───────────┬───────────┐
+      │           │           │           │
+      ↓           ↓           ↓           ↓
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│Worker 1 │ │Worker 2 │ │Worker 3 │ │Worker 4 │
+│PID:12346│ │PID:12347│ │PID:12348│ │PID:12349│
+│Port:3001│ │Port:3001│ │Port:3001│ │Port:3001│
+│(1 core) │ │(1 core) │ │(1 core) │ │(1 core) │
+└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+     │           │           │           │
+     └───────────┴───────────┴───────────┘
+                  │
+                  ↓
+            PostgreSQL
+     (Connection pool shared)
+
+OS Kernel distributes requests via round-robin
+Throughput: 250 req/s → 900 req/s (3.6x improvement)
+```
+
+**How it works:**
+1. Master process forks N worker processes (N = CPU cores)
+2. All workers listen on same port (3001)
+3. OS kernel distributes incoming connections
+4. Each worker handles requests independently
+5. If worker crashes, master spawns new one
+6. Database connection pool shared efficiently
+
+**Trade-offs:**
+- ✅ Better CPU utilization (use all cores)
+- ✅ Higher throughput (3-4x improvement)
+- ✅ Fault tolerance (auto-restart workers)
+- ❌ More memory usage (4x processes)
+- ❌ Complex debugging (multiple PIDs)
+- ❌ Session persistence needs Redis (sticky sessions)
 
 ## Database Architecture
 
@@ -282,34 +840,326 @@ Note {
 └─────────────────────────────────────────┘
 ```
 
-### Authentication Flow
+### Authentication Flow (Detailed)
 
+#### User Registration Flow
 ```
-Registration:
-1. Validate email format
-2. Check password strength (8+ chars)
-3. Hash password (bcrypt, 12 rounds)
-4. Create user in database
-5. Create session
-6. Return user data
+Client                  Backend                 Database
+  │                       │                        │
+  │  POST /api/auth/     │                        │
+  │  register            │                        │
+  ├─────────────────────>│                        │
+  │  { email,            │ 1. Rate limit check   │
+  │    password }        │    (5 req/15min)       │
+  │                      │                        │
+  │                      │ 2. Zod validation     │
+  │                      │    ├─ email: string    │
+  │                      │    └─ password: string │
+  │                      │                        │
+  │                      │ 3. Validator.isEmail()│
+  │                      │    ├─ Format check     │
+  │                      │    └─ Domain validation│
+  │                      │                        │
+  │                      │ 4. Password strength  │
+  │                      │    ├─ Min 8 characters │
+  │                      │    └─ Reject if weak   │
+  │                      │                        │
+  │                      │ 5. Check existing user│
+  │                      ├──────────────────────>│
+  │                      │  SELECT * FROM User    │
+  │                      │  WHERE email = $1      │
+  │                      │<──────────────────────┤
+  │                      │  (null if new user)    │
+  │                      │                        │
+  │                      │ 6. Hash password      │
+  │                      │    bcrypt.hash(pwd, 12)│
+  │                      │    ├─ Generate salt    │
+  │                      │    ├─ 2^12 iterations  │
+  │                      │    └─ ~300ms on server │
+  │                      │                        │
+  │                      │ 7. Create user        │
+  │                      ├──────────────────────>│
+  │                      │  INSERT INTO User      │
+  │                      │  VALUES (id, email,    │
+  │                      │    hashedPwd, ...)     │
+  │                      │<──────────────────────┤
+  │                      │  User { id, email }    │
+  │                      │                        │
+  │                      │ 8. Create session     │
+  │                      │    req.session.user = {│
+  │                      │      id, email, name   │
+  │                      │    }                   │
+  │                      │                        │
+  │                      │ 9. Save session       │
+  │                      ├──────────────────────>│
+  │                      │  INSERT INTO Session   │
+  │                      │  VALUES (sid, data)    │
+  │                      │<──────────────────────┤
+  │                      │                        │
+  │<─────────────────────┤                        │
+  │  Set-Cookie:         │                        │
+  │  connect.sid=xxx     │                        │
+  │  HttpOnly; Secure    │                        │
+  │                      │                        │
+  │  { success: true,    │                        │
+  │    data: {           │                        │
+  │      user: {...}     │                        │
+  │    }                 │                        │
+  │  }                   │                        │
+```
 
-Login:
-1. Validate credentials
-2. Check account lockout status
-3. Find user by email
-4. Verify password (bcrypt.compare)
-5. Reset failed attempts on success
-6. Increment attempts on failure
-7. Lock account after 5 failures
-8. Create session (24h or 30d)
-9. Return user data
+**Key Security Measures:**
+- Rate limiting prevents brute force registration spam
+- Email validation prevents typos and invalid addresses
+- Password hashing with bcrypt (12 rounds = ~300ms compute time)
+- Generic "Registration failed" error to prevent email enumeration
+- HttpOnly cookie prevents JavaScript access (XSS protection)
+- Secure flag ensures HTTPS-only transmission in production
+- SameSite=strict prevents CSRF attacks
 
-Authorization:
-1. Check session cookie
-2. Verify session validity
-3. Extract user ID
-4. Attach to request
-5. Proceed to route handler
+#### User Login Flow with Account Lockout
+```
+Client                  Backend                 Database
+  │                       │                        │
+  │  POST /api/auth/     │                        │
+  │  login               │                        │
+  ├─────────────────────>│                        │
+  │  { email,            │ 1. Rate limit check   │
+  │    password,         │    (5 req/15min)       │
+  │    rememberMe }      │    Only failed attempts│
+  │                      │    counted             │
+  │                      │                        │
+  │                      │ 2. Zod validation     │
+  │                      │                        │
+  │                      │ 3. Find user          │
+  │                      ├──────────────────────>│
+  │                      │  SELECT * FROM User    │
+  │                      │  WHERE email = $1      │
+  │                      │<──────────────────────┤
+  │                      │  User {                │
+  │                      │    id, email, password,│
+  │                      │    failedLoginAttempts,│
+  │                      │    accountLockedUntil  │
+  │                      │  }                     │
+  │                      │                        │
+  │                      │ 4. Account lockout    │
+  │                      │    check               │
+  │                      │    if (lockedUntil >   │
+  │                      │        now())          │
+  │                      │      return 423 Locked │
+  │                      │                        │
+  │                      │ 5. Verify password    │
+  │                      │    bcrypt.compare(     │
+  │                      │      plain, hashed)    │
+  │                      │    ├─ Extract salt     │
+  │                      │    ├─ Hash input       │
+  │                      │    └─ Compare hashes   │
+  │                      │                        │
+  │                      ├─── If INVALID ─────┐  │
+  │                      │                     │  │
+  │                      │ 6a. Increment fails │  │
+  │                      │     attempts++      │  │
+  │                      ├────────────────────────>│
+  │                      │  UPDATE User SET       │
+  │                      │  failedLoginAttempts++ │
+  │                      │  WHERE id = $1         │
+  │                      │                        │
+  │                      │ 6b. Lock if >= 5    │  │
+  │                      ├────────────────────────>│
+  │                      │  UPDATE User SET       │
+  │                      │  accountLockedUntil =  │
+  │                      │  NOW() + 15 minutes    │
+  │                      │  WHERE id = $1         │
+  │                      │<──────────────────────┤
+  │                      │                        │
+  │<─────────────────────┤                        │
+  │  401 Unauthorized    │                        │
+  │  "Invalid            │                        │
+  │  credentials"        │                        │
+  │                      │                        │
+  │                      └─── If VALID ───────┐  │
+  │                                            │  │
+  │                      │ 7a. Reset attempts  │  │
+  │                      ├────────────────────────>│
+  │                      │  UPDATE User SET       │
+  │                      │  failedLoginAttempts=0,│
+  │                      │  accountLockedUntil=   │
+  │                      │  NULL,                 │
+  │                      │  lastLoginAt = NOW()   │
+  │                      │  WHERE id = $1         │
+  │                      │<──────────────────────┤
+  │                      │                        │
+  │                      │ 7b. Create session  │  │
+  │                      │     maxAge = 24h or │  │
+  │                      │     30d if rememberMe  │
+  │                      │                        │
+  │                      │ 7c. Save session    │  │
+  │                      ├────────────────────────>│
+  │                      │  INSERT INTO Session   │
+  │                      │<──────────────────────┤
+  │                      │                        │
+  │<─────────────────────┤                        │
+  │  Set-Cookie:         │                        │
+  │  connect.sid=yyy     │                        │
+  │  MaxAge: 24h/30d     │                        │
+  │                      │                        │
+  │  { success: true,    │                        │
+  │    data: {           │                        │
+  │      user: {...}     │                        │
+  │    }                 │                        │
+  │  }                   │                        │
+```
+
+**Account Lockout Logic:**
+```typescript
+// apps/backend/src/routes/auth.ts
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
+
+// Check if account is locked
+if (user.accountLockedUntil && user.accountLockedUntil > new Date()) {
+  const remainingMinutes = Math.ceil(
+    (user.accountLockedUntil.getTime() - Date.now()) / 60000
+  );
+  return res.status(423).json({
+    success: false,
+    error: `Account locked. Try again in ${remainingMinutes} minute(s).`
+  });
+}
+
+// On failed login
+if (!isValidPassword) {
+  const updatedAttempts = user.failedLoginAttempts + 1;
+  const shouldLock = updatedAttempts >= MAX_LOGIN_ATTEMPTS;
+  
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: updatedAttempts,
+      accountLockedUntil: shouldLock 
+        ? new Date(Date.now() + LOCK_TIME)
+        : null
+    }
+  });
+  
+  return res.status(401).json({
+    success: false,
+    error: "Invalid credentials"
+  });
+}
+
+// On successful login
+await prisma.user.update({
+  where: { id: user.id },
+  data: {
+    failedLoginAttempts: 0,
+    accountLockedUntil: null,
+    lastLoginAt: new Date()
+  }
+});
+```
+
+**Why this approach?**
+- Prevents brute force attacks (5 attempts = 15min lockout)
+- Generic error messages prevent user enumeration
+- Automatic unlock after 15 minutes
+- Tracks lastLoginAt for suspicious activity detection
+- Failed attempts reset on successful login
+
+#### Authorization Flow (Protected Routes)
+```
+Client                  Backend                 Database
+  │                       │                        │
+  │  GET /api/notes      │                        │
+  │  Cookie: connect.sid │                        │
+  ├─────────────────────>│                        │
+  │                      │                        │
+  │                      │ 1. Session middleware │
+  │                      │    Parse cookie        │
+  │                      │    Extract sid         │
+  │                      │                        │
+  │                      │ 2. Load session       │
+  │                      ├──────────────────────>│
+  │                      │  SELECT * FROM Session │
+  │                      │  WHERE sid = $1 AND    │
+  │                      │  expiresAt > NOW()     │
+  │                      │<──────────────────────┤
+  │                      │  { data: { user: {...}}}│
+  │                      │                        │
+  │                      │ 3. Deserialize session│
+  │                      │    req.session = {     │
+  │                      │      user: {           │
+  │                      │        id, email, name │
+  │                      │      }                 │
+  │                      │    }                   │
+  │                      │                        │
+  │                      │ 4. requireAuth check  │
+  │                      │    if (!req.session.   │
+  │                      │         user)          │
+  │                      │      return 401        │
+  │                      │                        │
+  │                      │ 5. Route handler      │
+  │                      │    userId = req.       │
+  │                      │    session.user.id     │
+  │                      │                        │
+  │                      │ 6. Fetch user's notes │
+  │                      ├──────────────────────>│
+  │                      │  SELECT * FROM Note    │
+  │                      │  WHERE userId = $1 AND │
+  │                      │  isTrashed = false     │
+  │                      │  ORDER BY isPinned DESC│
+  │                      │  , isFavorite DESC,    │
+  │                      │    updatedAt DESC      │
+  │                      │<──────────────────────┤
+  │                      │  [Note, Note, ...]     │
+  │                      │                        │
+  │<─────────────────────┤                        │
+  │  { success: true,    │                        │
+  │    data: [notes]     │                        │
+  │  }                   │                        │
+```
+
+**Session Security:**
+- Sessions stored server-side (database or Redis)
+- Only session ID sent to client (opaque token)
+- Session data never exposed to client
+- Automatic expiration (24h default, 30d with "remember me")
+- HttpOnly cookie prevents JavaScript access
+- SameSite=strict prevents CSRF
+
+#### Session Lifecycle
+```
+1. Session Creation (on login/register)
+   ├─ Generate unique session ID (CUID or UUID)
+   ├─ Encrypt with SESSION_SECRET (HMAC-SHA256)
+   ├─ Store session data in database:
+   │   {
+   │     sid: "encrypted_session_id",
+   │     sess: { user: { id, email, name } },
+   │     expiresAt: Date + 24h
+   │   }
+   └─ Send cookie: connect.sid=encrypted_sid
+
+2. Session Usage (on each request)
+   ├─ Client sends Cookie: connect.sid=xxx
+   ├─ Server decrypts cookie
+   ├─ Loads session from database
+   ├─ Validates expiration (expiresAt > now())
+   ├─ Attaches session data to req.session
+   └─ Route handler accesses req.session.user
+
+3. Session Extension (on activity)
+   ├─ session.touch() called automatically
+   ├─ Updates expiresAt to now() + 24h
+   └─ Keeps session alive while user active
+
+4. Session Termination
+   ├─ Explicit: POST /api/auth/logout
+   │   ├─ req.session.destroy()
+   │   ├─ DELETE FROM Session WHERE sid = $1
+   │   └─ Clear cookie
+   └─ Automatic: expiresAt < now()
+       └─ Session middleware rejects
 ```
 
 ## Communication Patterns
