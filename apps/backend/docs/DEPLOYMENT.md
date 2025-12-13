@@ -1,524 +1,545 @@
-# Deployment Guide - Vertical Scaling
+# Deployment Guide
 
-This guide covers deploying the backend with vertical scaling capabilities.
+**Deploying the Notes Application Backend**
 
-## Table of Contents
-
-1. [Prerequisites](#prerequisites)
-2. [Local Development](#local-development)
-3. [Production Deployment](#production-deployment)
-4. [Cloud Deployment Examples](#cloud-deployment-examples)
-5. [Monitoring & Maintenance](#monitoring--maintenance)
-6. [Troubleshooting](#troubleshooting)
+---
 
 ## Prerequisites
 
-### Hardware Requirements
-
-| Environment | Min CPU | Min RAM | Recommended CPU | Recommended RAM |
-|-------------|---------|---------|-----------------|-----------------|
-| Development | 2 cores | 4GB | 4 cores | 8GB |
-| Staging | 2 cores | 4GB | 4 cores | 8GB |
-| Production (Low) | 2 cores | 4GB | 4 cores | 8GB |
-| Production (Medium) | 4 cores | 8GB | 8 cores | 16GB |
-| Production (High) | 8 cores | 16GB | 16+ cores | 32GB+ |
-
-### Software Requirements
-
 - Node.js 20+
-- Docker & Docker Compose (for containerized deployment)
 - PostgreSQL 16+
-- Redis 7+ (optional, but recommended for cluster mode)
+- Docker (optional, for containerized deployment)
+
+---
 
 ## Local Development
 
-### Quick Start
+### 1. Setup Database
 
+**Option A: Docker** (Recommended)
 ```bash
-# Interactive mode
-./quick-start.sh
-
-# Or direct command
-./quick-start.sh dev:cluster
+docker run --name notes-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=notes_db \
+  -p 5432:5432 \
+  -d postgres:16
 ```
 
-### Manual Setup
-
-1. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
-
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your settings
-   ```
-
-3. **Start database**
-   ```bash
-   docker-compose up -d postgres
-   ```
-
-4. **Run migrations**
-   ```bash
-   pnpm prisma:migrate
-   ```
-
-5. **Start in cluster mode**
-   ```bash
-   pnpm dev:cluster
-   ```
-
-## Production Deployment
-
-### Option 1: Direct Node.js Deployment
-
-#### Step 1: Prepare Environment
-
+**Option B: Local PostgreSQL**
 ```bash
-# Create production environment file
-cp .env.prod.example .env.prod
+# macOS with Homebrew
+brew install postgresql@16
+brew services start postgresql@16
 
-# Edit .env.prod - IMPORTANT: Update these values!
-# - SESSION_SECRET (use strong random string)
-# - POSTGRES_PASSWORD
-# - CORS_ORIGIN (your frontend domain)
-# - MAX_WORKERS (based on your CPU cores)
-# - MAX_OLD_SPACE_SIZE (based on available RAM)
+# Create database
+createdb notes_db
 ```
 
-#### Step 2: Install Production Dependencies
+### 2. Install Dependencies
 
 ```bash
-# Install dependencies
-pnpm install --prod
+cd apps/backend
+pnpm install
+```
 
+### 3. Configure Environment
+
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Edit .env and set:
+# - DATABASE_URL
+# - SESSION_SECRET
+```
+
+### 4. Setup Database Schema
+
+```bash
 # Generate Prisma client
 pnpm prisma:generate
-```
 
-#### Step 3: Build
-
-```bash
-pnpm build
-```
-
-#### Step 4: Database Setup
-
-```bash
 # Run migrations
-NODE_ENV=production pnpm prisma migrate deploy
+pnpm prisma:migrate:dev
 ```
 
-#### Step 5: Start Application
+### 5. Start Server
 
 ```bash
-# Load production environment
-export $(cat .env.prod | xargs)
+# Single process
+pnpm dev
 
-# Start in cluster mode
-pnpm start:cluster
+# Cluster mode (multi-core)
+pnpm dev:cluster
+
+# Or use interactive menu
+./quick-start.sh
 ```
 
-### Option 2: Docker Deployment (Recommended)
+---
 
-#### Step 1: Prepare Environment
+## Docker Deployment
 
-```bash
-cp .env.prod.example .env.prod
-# Edit .env.prod with your configuration
-```
-
-#### Step 2: Build and Deploy
+### Development
 
 ```bash
-# Build images
-pnpm docker:prod:build
+# Start all services (backend + database)
+docker-compose up
 
-# Start services
-pnpm docker:prod:up
+# Start in background
+docker-compose up -d
 
 # View logs
-pnpm docker:prod:logs
+docker-compose logs -f backend
+
+# Stop
+docker-compose down
 ```
 
-#### Step 3: Verify Deployment
+### Production
+
+**Build image**:
+```bash
+docker build -t notes-backend:latest -f Dockerfile .
+```
+
+**Run container**:
+```bash
+docker run -d \
+  --name notes-backend \
+  -p 3001:3001 \
+  -e DATABASE_URL="postgresql://..." \
+  -e SESSION_SECRET="your-secret" \
+  -e NODE_ENV=production \
+  -e CLUSTER_MODE=true \
+  notes-backend:latest
+```
+
+**Docker Compose** (production):
+```yaml
+# docker-compose.prod.yml
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@db:5432/notes_db
+      - SESSION_SECRET=${SESSION_SECRET}
+      - CLUSTER_MODE=true
+      - MAX_WORKERS=4
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=notes_db
+      - POSTGRES_PASSWORD=your-secure-password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+```
 
 ```bash
-# Check health
-curl http://localhost:3001/api/health
-
-# Check container status
-docker ps
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### Environment Configuration Examples
+---
 
-#### Small Application (Low Traffic)
+## Cloud Deployment
 
-```env
+### AWS (ECS with Fargate)
+
+**1. Build and push Docker image**:
+```bash
+# Login to ECR
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+
+# Build and push
+docker build -t notes-backend .
+docker tag notes-backend:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/notes-backend:latest
+docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/notes-backend:latest
+```
+
+**2. Create RDS PostgreSQL database**:
+```bash
+aws rds create-db-instance \
+  --db-instance-identifier notes-db \
+  --db-instance-class db.t3.micro \
+  --engine postgres \
+  --master-username postgres \
+  --master-user-password <strong-password> \
+  --allocated-storage 20
+```
+
+**3. Create ECS task definition and service** (use AWS Console or CLI)
+
+**Environment variables**:
+```
+DATABASE_URL=postgresql://postgres:password@<rds-endpoint>:5432/notes_db
+SESSION_SECRET=<strong-secret>
+NODE_ENV=production
+CLUSTER_MODE=true
 MAX_WORKERS=2
-MAX_OLD_SPACE_SIZE=1024
-BACKEND_CPU_LIMIT=2
-BACKEND_MEMORY_LIMIT=4G
 ```
 
-#### Medium Application (Moderate Traffic)
+### Google Cloud (Cloud Run)
 
-```env
-MAX_WORKERS=4
-MAX_OLD_SPACE_SIZE=2048
-BACKEND_CPU_LIMIT=4
-BACKEND_MEMORY_LIMIT=8G
-```
-
-#### Large Application (High Traffic)
-
-```env
-MAX_WORKERS=8
-MAX_OLD_SPACE_SIZE=3072
-BACKEND_CPU_LIMIT=8
-BACKEND_MEMORY_LIMIT=16G
-```
-
-## Cloud Deployment Examples
-
-### AWS EC2
-
-#### Instance Selection
-
-| Traffic Level | Instance Type | vCPUs | RAM | Cost/Month* |
-|--------------|---------------|-------|-----|-------------|
-| Low | t3.medium | 2 | 4GB | ~$30 |
-| Medium | t3.xlarge | 4 | 16GB | ~$120 |
-| High | t3.2xlarge | 8 | 32GB | ~$240 |
-
-*Approximate costs for on-demand Linux instances in us-east-1
-
-#### Deployment Steps
-
+**1. Build and push**:
 ```bash
-# 1. Launch EC2 instance (Ubuntu 22.04)
+# Build with Cloud Build
+gcloud builds submit --tag gcr.io/<project-id>/notes-backend
 
-# 2. Install dependencies
-ssh ec2-user@your-instance
-sudo apt update
-sudo apt install -y docker.io docker-compose nodejs npm
-sudo npm install -g pnpm
-
-# 3. Clone repository
-git clone your-repo
-cd notes-application/apps/backend
-
-# 4. Configure environment
-cp .env.prod.example .env.prod
-nano .env.prod
-
-# 5. Deploy with Docker
-pnpm docker:prod:up
-
-# 6. Configure reverse proxy (Nginx)
-sudo apt install nginx
-# Configure Nginx to proxy to port 3001
+# Or push local image
+docker tag notes-backend gcr.io/<project-id>/notes-backend
+docker push gcr.io/<project-id>/notes-backend
 ```
 
-### DigitalOcean Droplet
-
-#### Droplet Selection
-
-- **Basic**: 2 vCPUs, 4GB RAM ($24/month)
-- **General Purpose**: 4 vCPUs, 8GB RAM ($48/month)
-- **CPU-Optimized**: 8 vCPUs, 16GB RAM ($144/month)
-
-#### One-Click Docker Droplet
-
-1. Create Docker droplet
-2. SSH into droplet
-3. Follow same deployment steps as AWS EC2
-
-### Google Cloud Platform (GCP)
-
-#### Compute Engine VM
-
+**2. Create Cloud SQL instance**:
 ```bash
-# Create VM
-gcloud compute instances create notes-backend \
-  --machine-type=n2-standard-4 \
-  --image-family=ubuntu-2204-lts \
-  --image-project=ubuntu-os-cloud \
-  --boot-disk-size=50GB
-
-# SSH and deploy
-gcloud compute ssh notes-backend
-# Follow deployment steps
+gcloud sql instances create notes-db \
+  --database-version=POSTGRES_16 \
+  --tier=db-f1-micro \
+  --region=us-central1
 ```
 
-### Azure VM
-
+**3. Deploy to Cloud Run**:
 ```bash
-# Create VM
-az vm create \
+gcloud run deploy notes-backend \
+  --image gcr.io/<project-id>/notes-backend \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="NODE_ENV=production,SESSION_SECRET=<secret>" \
+  --add-cloudsql-instances=<project-id>:us-central1:notes-db \
+  --memory=512Mi \
+  --cpu=1 \
+  --min-instances=1 \
+  --max-instances=10
+```
+
+### Azure (Container Instances)
+
+**1. Push to Azure Container Registry**:
+```bash
+az acr login --name <registry-name>
+docker tag notes-backend <registry-name>.azurecr.io/notes-backend:latest
+docker push <registry-name>.azurecr.io/notes-backend:latest
+```
+
+**2. Create Azure Database for PostgreSQL**:
+```bash
+az postgres server create \
+  --resource-group notes-rg \
+  --name notes-db \
+  --location eastus \
+  --admin-user postgres \
+  --admin-password <strong-password> \
+  --sku-name B_Gen5_1 \
+  --version 16
+```
+
+**3. Deploy container**:
+```bash
+az container create \
   --resource-group notes-rg \
   --name notes-backend \
-  --image Ubuntu2204 \
-  --size Standard_D4s_v3 \
-  --admin-username azureuser
-
-# Deploy
-ssh azureuser@your-vm-ip
-# Follow deployment steps
+  --image <registry-name>.azurecr.io/notes-backend:latest \
+  --cpu 1 \
+  --memory 1 \
+  --ports 3001 \
+  --environment-variables \
+    NODE_ENV=production \
+    SESSION_SECRET=<secret> \
+    DATABASE_URL=<connection-string>
 ```
 
-## Monitoring & Maintenance
+### DigitalOcean (App Platform)
 
-### Application Monitoring
+**1. Connect GitHub repository** via DigitalOcean dashboard
 
-The application includes built-in monitoring when `ENABLE_MEMORY_MONITORING=true`:
+**2. Configure app**:
+```yaml
+name: notes-backend
+region: nyc
+services:
+  - name: backend
+    github:
+      repo: your-username/notes-application
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: apps/backend/Dockerfile
+    http_port: 3001
+    instance_count: 1
+    instance_size_slug: basic-xs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        value: <secret>
+        type: SECRET
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+        type: SECRET
+      - key: CLUSTER_MODE
+        value: "false"  # App Platform handles scaling
 
-```bash
-# View logs
-pnpm docker:prod:logs
-
-# Example output:
-# 📊 Master Memory Usage: RSS=256MB, Heap=128MB
-# 💚 Worker 12345 is online
-# 📊 Worker 12345 Memory: RSS=384MB, Heap=256MB
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    size: db-s-1vcpu-1gb
 ```
 
-### Health Checks
+---
 
-```bash
-# Check application health
-curl http://localhost:3001/api/health
+## Production Configuration
 
-# Expected response:
-{
-  "status": "ok",
-  "timestamp": "2024-12-12T10:00:00.000Z"
+### Environment Variables
+
+```dotenv
+# Server
+BACKEND_PORT=3001
+NODE_ENV=production
+
+# Database (with SSL)
+DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require&connection_limit=20"
+
+# Security (MUST be strong!)
+SESSION_SECRET="<32-char-random-string>"
+CORS_ORIGIN="https://yourapp.com"
+
+# Scaling
+CLUSTER_MODE=true
+MAX_WORKERS=4
+
+# Monitoring
+ENABLE_MEMORY_MONITORING=true
+ENABLE_PERFORMANCE_LOGGING=true
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+### Nginx Reverse Proxy
+
+```nginx
+# /etc/nginx/sites-available/notes-backend
+server {
+    listen 80;
+    server_name api.yourapp.com;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
 }
 ```
 
-### Resource Monitoring
-
+Enable HTTPS with Let's Encrypt:
 ```bash
-# Monitor Docker containers
-docker stats
-
-# Monitor system resources
-htop
-
-# Check worker processes
-ps aux | grep node
+sudo certbot --nginx -d api.yourapp.com
 ```
 
-### Log Management
+---
 
-```bash
-# Follow logs
-docker logs -f notes-backend-prod
+## Health Checks & Monitoring
 
-# View last 100 lines
-docker logs --tail 100 notes-backend-prod
+### Load Balancer Health Check
 
-# Save logs to file
-docker logs notes-backend-prod > backend.log 2>&1
+Configure your load balancer to check:
+```
+Path: /api/health
+Interval: 30 seconds
+Timeout: 5 seconds
+Healthy threshold: 2
+Unhealthy threshold: 3
 ```
 
-### Database Backups
+### Application Monitoring
+
+**Health endpoint**:
+```bash
+curl https://api.yourapp.com/api/health
+```
+
+**Metrics endpoint** (protect in production):
+```bash
+curl https://api.yourapp.com/api/metrics
+```
+
+**Set up alerts** for:
+- Response time > 1s
+- Error rate > 1%
+- Memory usage > 80%
+- CPU usage > 80%
+
+---
+
+## Database Migrations
+
+### Development
+```bash
+# Create new migration
+pnpm prisma:migrate:dev --name add_feature
+
+# Reset database (WARNING: deletes data)
+pnpm prisma:migrate:reset
+```
+
+### Production
+```bash
+# Apply pending migrations
+pnpm prisma:migrate:deploy
+
+# DO NOT use migrate:dev in production!
+```
+
+**Best practice**: Run migrations before deploying new code version.
+
+---
+
+## Backup & Recovery
+
+### Database Backup
 
 ```bash
-# Backup database
-docker exec notes-postgres-prod pg_dump -U postgres notes_db > backup.sql
+# Backup
+pg_dump -h <host> -U <user> -d notes_db > backup-$(date +%Y%m%d).sql
 
-# Restore database
-cat backup.sql | docker exec -i notes-postgres-prod psql -U postgres notes_db
+# Restore
+psql -h <host> -U <user> -d notes_db < backup-20251213.sql
 ```
+
+**Automated backups**:
+- AWS RDS: Enable automatic backups (7-35 day retention)
+- Google Cloud SQL: Automatic daily backups
+- Azure Database: Geo-redundant backups
+
+---
+
+## Scaling
+
+### Vertical Scaling (Single Server)
+
+```dotenv
+# Enable cluster mode to use all CPU cores
+CLUSTER_MODE=true
+MAX_WORKERS=8  # Set to number of CPU cores
+
+# Increase memory limit
+NODE_OPTIONS=--max-old-space-size=2048
+```
+
+### Horizontal Scaling (Multiple Servers)
+
+**Requirements**:
+- Load balancer (AWS ALB, nginx, etc.)
+- External session store (Redis)
+- Shared database
+
+**Setup Redis for sessions**:
+```bash
+npm install connect-redis redis
+```
+
+```typescript
+// In server.ts
+import RedisStore from 'connect-redis';
+import { createClient } from 'redis';
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL
+});
+redisClient.connect();
+
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  // ... other options
+}));
+```
+
+---
 
 ## Troubleshooting
 
-### High Memory Usage
+### Container won't start
 
-**Symptoms:**
-- `⚠️ Worker memory usage exceeds threshold` warnings
-- Application slowdown
-- Workers crashing
-
-**Solutions:**
-
-1. Increase heap size:
-   ```env
-   MAX_OLD_SPACE_SIZE=3072
-   ```
-
-2. Reduce worker count:
-   ```env
-   MAX_WORKERS=2
-   ```
-
-3. Increase container memory:
-   ```env
-   BACKEND_MEMORY_LIMIT=16G
-   ```
-
-### Workers Keep Restarting
-
-**Check logs:**
 ```bash
-docker logs notes-backend-prod | grep "Worker died"
+# Check logs
+docker logs notes-backend
+
+# Common issues:
+# - DATABASE_URL not set
+# - Database not accessible
+# - Port already in use
 ```
 
-**Common causes:**
-- Out of memory
-- Uncaught exceptions
-- Database connection issues
+### Database connection errors
 
-**Solutions:**
-1. Check memory limits
-2. Review application logs for errors
-3. Verify database connectivity
+```bash
+# Test connection
+docker exec -it notes-backend \
+  psql $DATABASE_URL -c "SELECT 1"
 
-### High CPU Usage
+# Check if using SSL: add ?sslmode=require
+DATABASE_URL="postgresql://...?sslmode=require"
+```
 
-**Symptoms:**
-- CPU at 100%
-- Slow response times
+### High memory usage
 
-**Solutions:**
+```bash
+# Set memory limit
+NODE_OPTIONS=--max-old-space-size=512
 
-1. Check if all cores are utilized:
-   ```bash
-   docker stats
-   ```
+# Monitor memory
+curl http://localhost:3001/api/metrics
+```
 
-2. Increase worker count (if CPU not maxed):
-   ```env
-   MAX_WORKERS=8
-   ```
+### Slow performance
 
-3. Increase CPU limits:
-   ```env
-   BACKEND_CPU_LIMIT=8
-   ```
+1. Enable cluster mode
+2. Check database indexes
+3. Increase connection pool
+4. Add caching layer (Redis)
 
-### Database Connection Errors
+---
 
-**Symptoms:**
-- `Connection refused` errors
-- `Too many connections` warnings
+## Production Checklist
 
-**Solutions:**
+- [ ] Strong `SESSION_SECRET` (32+ chars)
+- [ ] Database with SSL enabled
+- [ ] `NODE_ENV=production`
+- [ ] `CORS_ORIGIN` set to production domain
+- [ ] Cluster mode enabled for multi-core
+- [ ] Health check endpoint configured
+- [ ] Database backups enabled
+- [ ] Monitoring and alerts set up
+- [ ] HTTPS/TLS configured
+- [ ] Rate limiting enabled
+- [ ] Error tracking (Sentry, etc.) configured
+- [ ] Load testing completed
+- [ ] Documentation updated
 
-1. Check database status:
-   ```bash
-   docker ps
-   docker logs notes-postgres-prod
-   ```
+---
 
-2. Verify DATABASE_URL in .env.prod
-
-3. Increase PostgreSQL connection limit (in docker-compose.prod.yml):
-   ```yaml
-   environment:
-     POSTGRES_MAX_CONNECTIONS: "200"
-   ```
-
-### Port Already in Use
-
-**Error:** `EADDRINUSE: address already in use`
-
-**Solutions:**
-
-1. Find process using port:
-   ```bash
-   lsof -i :3001
-   ```
-
-2. Kill process:
-   ```bash
-   kill -9 <PID>
-   ```
-
-3. Or change port:
-   ```env
-   BACKEND_PORT=3002
-   ```
-
-## Performance Optimization
-
-### Database Tuning
-
-See PostgreSQL settings in [docker-compose.prod.yml](../docker-compose.prod.yml)
-
-Key settings to adjust based on your hardware:
-- `POSTGRES_SHARED_BUFFERS`: 25% of RAM
-- `POSTGRES_EFFECTIVE_CACHE_SIZE`: 50-75% of RAM
-- `POSTGRES_WORK_MEM`: RAM / (MAX_CONNECTIONS * 3)
-
-### Application Tuning
-
-1. **Session Store**: Use Redis in production
-   ```bash
-   # Redis is included in docker-compose.prod.yml
-   ```
-
-2. **Rate Limiting**: Adjust based on traffic
-   ```env
-   RATE_LIMIT_MAX_REQUESTS=1000
-   RATE_LIMIT_WINDOW_MS=60000  # 1 minute
-   ```
-
-3. **Body Parser Limits**: Adjust based on needs
-   ```env
-   BODY_PARSER_LIMIT=10mb
-   ```
-
-## Security Checklist
-
-- [ ] Change default passwords
-- [ ] Set strong SESSION_SECRET
-- [ ] Configure CORS_ORIGIN to your domain
-- [ ] Enable HTTPS (use reverse proxy like Nginx)
-- [ ] Set secure cookie settings
-- [ ] Configure firewall rules
-- [ ] Regular security updates
-- [ ] Monitor logs for suspicious activity
-- [ ] Set up automated backups
-- [ ] Implement rate limiting
-
-## Scaling Further
-
-### When Vertical Scaling Isn't Enough
-
-Consider horizontal scaling (multiple servers) when:
-- Single server CPU/RAM maxed out
-- Need high availability (no single point of failure)
-- Traffic exceeds ~10-20k requests/minute
-- Geographic distribution needed
-
-### Transition to Horizontal Scaling
-
-Options:
-1. **Load Balancer + Multiple Instances**
-   - Nginx/HAProxy
-   - AWS ALB/ELB
-   - Google Cloud Load Balancer
-
-2. **Container Orchestration**
-   - Kubernetes
-   - Docker Swarm
-   - AWS ECS/Fargate
-
-3. **Platform as a Service**
-   - Heroku
-   - Railway
-   - Render
-   - Fly.io
-
-## Support
-
-For issues and questions:
-1. Check logs: `pnpm docker:prod:logs`
-2. Review [SCALING.md](./SCALING.md)
-3. Check [README.md](../README.md)
-4. Open issue on GitHub
+**Last Updated**: December 13, 2025
