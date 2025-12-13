@@ -11,6 +11,52 @@ const md = new MarkdownIt();
 router.use(requireAuth);
 
 /**
+ * @swagger
+ * /api/v1/export/{id}/{format}:
+ *   get:
+ *     summary: Export a note in specified format
+ *     tags: [Export]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Note ID
+ *       - in: path
+ *         name: format
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [pdf, markdown, json, html]
+ *         description: Export format
+ *     responses:
+ *       200:
+ *         description: File download
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           text/markdown:
+ *             schema:
+ *               type: string
+ *           application/json:
+ *             schema:
+ *               type: object
+ *           text/html:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Invalid format
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  * GET /api/export/:id/:format - Export a single note in specified format
  * 
  * @route GET /api/export/:id/:format

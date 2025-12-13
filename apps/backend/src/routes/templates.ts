@@ -9,7 +9,44 @@ const router: Router = Router();
 // All routes require authentication
 router.use(requireAuth);
 
-// GET /api/templates - Get all templates for authenticated user
+/**
+ * @swagger
+ * /api/v1/templates:
+ *   get:
+ *     summary: Get all templates for authenticated user
+ *     tags: [Templates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [updatedAt, createdAt, name]
+ *           default: updatedAt
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *     responses:
+ *       200:
+ *         description: List of templates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.get("/", async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
@@ -38,7 +75,28 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/templates/:id - Get single template
+/**
+ * @swagger
+ * /api/v1/templates/{id}:
+ *   get:
+ *     summary: Get a single template by ID
+ *     tags: [Templates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Template details
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -68,7 +126,38 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/templates - Create template
+/**
+ * @swagger
+ * /api/v1/templates:
+ *   post:
+ *     summary: Create a new template
+ *     tags: [Templates]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - content
+ *             properties:
+ *               name:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Template created successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.post("/", async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;

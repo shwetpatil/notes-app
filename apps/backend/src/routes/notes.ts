@@ -10,7 +10,65 @@ const router: Router = Router();
 // All routes require authentication
 router.use(requireAuth);
 
-// GET /api/notes - Get all notes for authenticated user
+/**
+ * @swagger
+ * /api/v1/notes:
+ *   get:
+ *     summary: Get all notes for authenticated user
+ *     tags: [Notes]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in title and content
+ *       - in: query
+ *         name: tags
+ *         schema:
+ *           type: string
+ *         description: Comma-separated tags to filter by
+ *         example: javascript,tutorial
+ *       - in: query
+ *         name: archived
+ *         schema:
+ *           type: boolean
+ *         description: Filter by archived status
+ *       - in: query
+ *         name: trashed
+ *         schema:
+ *           type: boolean
+ *         description: Show trashed notes
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [updatedAt, createdAt, title]
+ *           default: updatedAt
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *     responses:
+ *       200:
+ *         description: List of notes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Note'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.get("/", async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
@@ -82,7 +140,38 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/notes/:id - Get single note
+/**
+ * @swagger
+ * /api/v1/notes/{id}:
+ *   get:
+ *     summary: Get a single note by ID
+ *     tags: [Notes]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Note ID
+ *     responses:
+ *       200:
+ *         description: Note details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Note'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -112,7 +201,47 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/notes - Create note
+/**
+ * @swagger
+ * /api/v1/notes:
+ *   post:
+ *     summary: Create a new note
+ *     tags: [Notes]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - content
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 maxLength: 255
+ *               content:
+ *                 type: string
+ *               contentFormat:
+ *                 type: string
+ *                 enum: [plaintext, markdown, html]
+ *                 default: plaintext
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               folderId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Note created successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.post("/", async (req: Request, res: Response) => {
   try {
     const userId = req.session.user!.id;
@@ -160,7 +289,45 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-// PATCH /api/notes/:id - Update note
+/**
+ * @swagger
+ * /api/v1/notes/{id}:
+ *   patch:
+ *     summary: Update an existing note
+ *     tags: [Notes]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               folderId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Note updated successfully
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.patch("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -241,7 +408,28 @@ router.patch("/:id", async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/notes/:id - Delete note
+/**
+ * @swagger
+ * /api/v1/notes/{id}:
+ *   delete:
+ *     summary: Delete a note
+ *     tags: [Notes]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Note deleted successfully
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

@@ -9,6 +9,29 @@ const router: Router = Router();
 router.use(requireAuth);
 
 /**
+ * @swagger
+ * /api/v1/folders:
+ *   get:
+ *     summary: Get all folders for authenticated user
+ *     tags: [Folders]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: List of folders with note counts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Folder'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  * GET /api/folders - Get all folders for authenticated user
  * 
  * @route GET /api/folders
@@ -64,6 +87,37 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 /**
+ * @swagger
+ * /api/v1/folders:
+ *   post:
+ *     summary: Create a new folder
+ *     tags: [Folders]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *               color:
+ *                 type: string
+ *               parentId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Folder created successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  * POST /api/folders - Create a new folder
  * 
  * @route POST /api/folders

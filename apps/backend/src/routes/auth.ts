@@ -2,27 +2,65 @@ import { Router, Request, Response } from "express";
 import { loginSchema } from "@notes/types";
 import { prisma } from "../config";
 import bcrypt from "bcrypt";
-import rateLimit from "express-rate-limit";
 import validator from "validator";
+import { authRateLimiter } from "../middleware/rateLimiter";
 
 const router: Router = Router();
-
-// Stricter rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: "Too many authentication attempts, please try again later.",
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful requests
-});
 
 const SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
 
-// Register new user
-router.post("/register", authLimiter, async (req: Request, res: Response) => {
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 8
+ *                 example: SecurePass123!
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *                     message:
+ *                       type: string
+ *                       example: Account created successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitError'
+ */
+router.post("/register", authRateLimiter, async (req: Request, res: Response) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
 
@@ -102,8 +140,43 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
   }
 });
 
-// Login - authenticate existing user
-router.post("/login", authLimiter, async (req: Request, res: Response) => {
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: SecurePass123!
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       423:
+ *         description: Account locked
+ *       429:
+ *         $ref: '#/components/responses/RateLimitError'
+ */
+router.post("/login", authRateLimiter, async (req: Request, res: Response) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
 
