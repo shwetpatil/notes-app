@@ -198,7 +198,6 @@ export class NoteService {
         return null;
       }
 
-      // Log view
       logger.info({ event: LOG_EVENTS.NOTE_VIEWED, noteId, userId });
 
       return note;

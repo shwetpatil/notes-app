@@ -1,686 +1,601 @@
 # Frontend Architecture
 
-**Next.js 15 + React 18 Architecture for Notes Application**
+**Notes Application Frontend Architecture**  
+**Last Updated**: December 13, 2025
+
+---
+
+## System Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Browser (Client)                      │
+│                                                          │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │  Next.js Application (Port 3000)                   │ │
+│  │                                                     │ │
+│  │  React Components + Server Components              │ │
+│  │  App Router (app/) + Client Components             │ │
+│  └────────────────────────────────────────────────────┘ │
+│                         ↓                                │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │  State Management Layer                            │ │
+│  │  • TanStack Query (Server State)                   │ │
+│  │  • React Context (Theme, Auth)                     │ │
+│  │  • Optimistic Updates                              │ │
+│  └────────────────────────────────────────────────────┘ │
+│                         ↓                                │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │  Offline Storage (IndexedDB via Dexie)             │ │
+│  │  • Local cache of all notes                        │ │
+│  │  • Offline-first operations                        │ │
+│  │  • Auto-sync when online                           │ │
+│  └────────────────────────────────────────────────────┘ │
+└────────────────────────┬────────────────────────────────┘
+                         │ HTTP/HTTPS
+                         │ API Calls via Axios
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│            Backend API (Express - Port 3001)             │
+│                    PostgreSQL Database                   │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Technology Stack
 
-**Framework & UI:**
-- **Next.js 15** - React framework with App Router, Server Components, Turbopack
-- **React 18** - UI library with concurrent features
-- **TypeScript 5.3** - Static type checking
+### Core Technologies
+- **Runtime**: Next.js 15 (React 18)
+- **Language**: TypeScript 5.3
+- **Build Tool**: Turbopack (dev), Webpack (prod)
+- **Styling**: Tailwind CSS 3.4
 
-**Styling:**
-- **Tailwind CSS 3.4** - Utility-first CSS framework
-- **PostCSS** - CSS processing
-
-**State Management:**
-- **TanStack Query 5** - Server state management (formerly React Query)
-- **React Context** - Theme state
-- **Dexie 4** - IndexedDB wrapper for offline storage
-
-**HTTP Client:**
-- **Axios 1.6** - Promise-based HTTP client with interceptors
-
-**Testing:**
-- **Playwright** - E2E testing framework
+### Key Libraries
+- **State Management**: TanStack Query 5.17, React Context
+- **Offline Storage**: Dexie 4 (IndexedDB)
+- **HTTP Client**: Axios 1.6
+- **Rich Text**: TipTap 3, Lowlight 3
+- **Testing**: Jest 30, React Testing Library 16, Playwright 1.41, jest-axe 10
+- **PWA**: next-pwa 5.6
+- **i18n**: next-intl 4.6
 
 ---
 
-## Architecture Overview
+## Project Structure
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                      Browser (Client)                         │
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │         React Application (Next.js)                 │    │
-│  │                                                     │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌───────────┐│    │
-│  │  │  UI Layer    │  │ State Layer  │  │Cache Layer││    │
-│  │  │              │  │              │  │           ││    │
-│  │  │ Components   │←─│ TanStack     │←─│ IndexedDB ││    │
-│  │  │ (TSX/JSX)    │  │ Query        │  │ (Dexie)   ││    │
-│  │  │              │  │              │  │           ││    │
-│  │  │ - NotesList  │  │ - useQuery   │  │ - notes   ││    │
-│  │  │ - NoteEditor │  │ - useMutation│  │ - users   ││    │
-│  │  │ - SearchBar  │  │ - useContext │  │ - sync    ││    │
-│  │  └──────────────┘  └──────────────┘  └───────────┘│    │
-│  │         │                  │                │      │    │
-│  │         └──────────────────┴────────────────┘      │    │
-│  │                          │                         │    │
-│  │                          ↓                         │    │
-│  │              ┌───────────────────────┐            │    │
-│  │              │   API Client (Axios)  │            │    │
-│  │              │ - baseURL config      │            │    │
-│  │              │ - Interceptors        │            │    │
-│  │              │ - Error handling      │            │    │
-│  │              └───────────────────────┘            │    │
-│  └───────────────────────┬─────────────────────────────┘    │
-└────────────────────────────┼────────────────────────────────┘
-                             │ HTTP/HTTPS
-                             │ REST API
-                             ↓
-┌───────────────────────────────────────────────────────────────┐
-│                  Backend API (Express.js)                     │
-│                  See backend/docs/ARCHITECTURE.md             │
-└───────────────────────────────────────────────────────────────┘
-```
-
----
-
-## App Router Structure
-
-### Directory-Based Routing
-
-```
-app/
-├── layout.tsx                 # Root layout (applies to all pages)
-│   ├─ <html>, <body> tags
-│   ├─ Global styles
-│   ├─ Theme Provider
-│   ├─ Query Client Provider
-│   └─ Metadata
+apps/frontend/
+├── src/
+│   ├── app/                        # Next.js App Router
+│   │   ├── layout.tsx              # Root layout + metadata
+│   │   ├── page.tsx                # Landing page
+│   │   ├── providers.tsx           # Context providers
+│   │   ├── login/                  # Login page
+│   │   ├── register/               # Register page
+│   │   ├── notes/                  # Notes dashboard
+│   │   ├── templates/              # Templates page
+│   │   └── globals.css             # Global styles
+│   │
+│   ├── components/                 # React Components
+│   │   ├── NoteEditor.tsx          # TipTap rich text editor
+│   │   ├── NotesList.tsx           # Notes grid display
+│   │   ├── SearchBar.tsx           # Search & filters
+│   │   ├── NoteCard.tsx            # Individual note card
+│   │   ├── Navbar.tsx              # Navigation bar
+│   │   ├── ThemeSwitcher.tsx       # Dark/light mode
+│   │   └── PerformanceMonitor.tsx  # Web Vitals display
+│   │
+│   ├── context/                    # React Context
+│   │   └── ThemeContext.tsx        # Theme state management
+│   │
+│   ├── lib/                        # Utility libraries
+│   │   ├── api.ts                  # Axios HTTP client
+│   │   ├── db.ts                   # Dexie IndexedDB setup
+│   │   ├── monitoring.ts           # Web Vitals tracking
+│   │   └── errorTracking.ts        # Error handling
+│   │
+│   ├── i18n/                       # Internationalization
+│   │   ├── request.ts              # i18n configuration
+│   │   └── messages/               # Translation files
+│   │       ├── en.json
+│   │       ├── es.json
+│   │       └── fr.json
+│   │
+│   └── __tests__/                  # Jest tests
+│       ├── Button.test.tsx
+│       ├── SearchBar.test.tsx
+│       └── accessibility.test.tsx
 │
-├── page.tsx                   # Home page (/)
-│   └─ Landing/welcome screen
+├── public/                         # Static assets
+│   ├── manifest.json               # PWA manifest
+│   └── icons/                      # App icons
 │
-├── login/
-│   └── page.tsx               # Login page (/login)
-│       ├─ Email/password form
-│       ├─ Remember me checkbox
-│       └─ Link to register
+├── e2e/                           # Playwright E2E tests
+│   └── notes.spec.ts
 │
-├── register/
-│   └── page.tsx               # Register page (/register)
-│       ├─ Email/password/name form
-│       └─ Link to login
+├── docs/                          # Documentation
+│   ├── README.md
+│   ├── ARCHITECTURE.md            # This file
+│   ├── PERFORMANCE.md
+│   ├── SECURITY.md
+│   └── TESTING.md
 │
-└── notes/
-    └── page.tsx               # Notes dashboard (/notes)
-        ├─ requireAuth check
-        ├─ Sidebar
-        ├─ SearchBar
-        ├─ NotesList
-        └─ NoteEditor
-```
-
-**Route Mapping:**
-- `/` → `app/page.tsx` (Home)
-- `/login` → `app/login/page.tsx` (Login)
-- `/register` → `app/register/page.tsx` (Register)
-- `/notes` → `app/notes/page.tsx` (Notes Dashboard)
-
----
-
-## Component Architecture
-
-### Layout Hierarchy
-
-```
-app/layout.tsx (Root Layout)
-├─ Providers (Query Client, Theme)
-├─ Global styles
-└─ {children} (Page content)
-    │
-    ├─ app/page.tsx (Home)
-    │
-    ├─ app/login/page.tsx (Login)
-    │   └─ LoginForm component
-    │
-    ├─ app/register/page.tsx (Register)
-    │   └─ RegisterForm component
-    │
-    └─ app/notes/page.tsx (Notes Dashboard)
-        ├─ Sidebar
-        │   ├─ User info
-        │   ├─ Theme toggle
-        │   └─ Filter options
-        ├─ SearchBar
-        │   ├─ Search input
-        │   ├─ Tag filter
-        │   └─ Sort dropdown
-        ├─ NotesList
-        │   └─ NoteCard (multiple)
-        │       ├─ Title
-        │       ├─ Preview
-        │       ├─ Tags
-        │       ├─ Timestamp
-        │       └─ Actions (pin, favorite, delete)
-        └─ NoteEditor
-            ├─ Title input
-            ├─ Content textarea
-            ├─ Color picker
-            ├─ Tag input
-            └─ Save/Cancel buttons
+└── Configuration Files
+    ├── next.config.ts             # Next.js config
+    ├── tailwind.config.js         # Tailwind config
+    ├── jest.config.ts             # Jest config
+    ├── playwright.config.ts       # Playwright config
+    └── tsconfig.json              # TypeScript config
 ```
 
 ---
 
-## Offline-First Strategy
+## Architecture Layers
 
-### Data Flow with IndexedDB
+### 1. Presentation Layer (React Components)
 
-```
-User Action (e.g., Create Note)
-    ↓
-1. Component Event Handler
-   └─ onClick, onSubmit, etc.
-    ↓
-2. Optimistic Update (Instant UI feedback)
-   ├─ Update local React state
-   ├─ Write to IndexedDB immediately
-   │   └─ db.notes.add({ title, content, ... })
-   └─ UI reflects change (<100ms)
-    ↓
-3. API Call (Background sync)
-   ├─ TanStack Query mutation
-   │   └─ axios.post('/api/notes', data)
-   ├─ Request sent to backend
-   └─ If offline: Queue for retry
-    ↓
-4. Backend Processing
-   ├─ Validate data
-   ├─ Save to PostgreSQL
-   └─ Return response
-    ↓
-5. Response Handling
-   ├─ If success:
-   │   ├─ Update IndexedDB with server data
-   │   │   └─ db.notes.put(serverNote)
-   │   └─ React Query invalidates cache
-   │       └─ Refetch to ensure consistency
-   └─ If error:
-       ├─ Revert optimistic update
-       ├─ Show error message
-       └─ Keep local data for retry
-```
+**Responsibilities:**
+- Render UI based on state
+- Handle user interactions
+- Display loading/error states
+- Optimistic UI updates
 
-**Key Benefits:**
-- ⚡ **Instant feedback**: UI updates immediately
-- 📡 **Offline support**: Works without network
-- 🔄 **Auto-sync**: Syncs when connection restored
-- 💾 **Data persistence**: Survives page refresh
-- 🎯 **Consistency**: Server is source of truth
+**Key Components:**
 
----
-
-## State Management
-
-### 1. Server State (TanStack Query)
-
-**Purpose:** Manage API data, caching, and synchronization
-
+**NoteEditor** (`components/NoteEditor.tsx`):
 ```typescript
-// lib/api.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-// Fetch notes
-export function useNotes() {
-  return useQuery({
-    queryKey: ['notes'],
-    queryFn: async () => {
-      const response = await api.get('/api/notes');
-      return response.data.data;
-    },
-    staleTime: 5 * 60 * 1000,  // 5 minutes
-    gcTime: 10 * 60 * 1000,    // 10 minutes (formerly cacheTime)
-  });
-}
-
-// Create note
-export function useCreateNote() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (noteData) => {
-      const response = await api.post('/api/notes', noteData);
-      return response.data.data;
-    },
-    onMutate: async (newNote) => {
-      // Optimistic update
-      await queryClient.cancelQueries({ queryKey: ['notes'] });
-      
-      const previousNotes = queryClient.getQueryData(['notes']);
-      
-      queryClient.setQueryData(['notes'], (old) => [
-        ...(old || []),
-        { id: 'temp-id', ...newNote, createdAt: new Date() }
-      ]);
-      
-      return { previousNotes };
-    },
-    onError: (err, newNote, context) => {
-      // Revert on error
-      queryClient.setQueryData(['notes'], context.previousNotes);
-    },
-    onSuccess: () => {
-      // Refetch to get server data
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-    }
-  });
-}
+- TipTap rich text editor
+- Markdown and HTML support
+- Code syntax highlighting
+- Auto-save functionality
+- Toolbar with formatting options
 ```
 
-**Query Client Configuration:**
+**NotesList** (`components/NotesList.tsx`):
 ```typescript
-// app/providers.tsx
+- Grid/list view of notes
+- Filtering (pinned, favorites, archived)
+- Search integration
+- Infinite scroll
+- Skeleton loaders
+```
+
+**SearchBar** (`components/SearchBar.tsx`):
+```typescript
+- Real-time search
+- Tag filtering
+- Sort options
+- View mode toggle
+```
+
+---
+
+### 2. State Management Layer
+
+#### TanStack Query (Server State)
+
+**Purpose**: Manage server-synchronized data with caching, background updates, and optimistic updates.
+
+**Configuration** (`app/providers.tsx`):
+```typescript
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1 * 60 * 1000,      // Data fresh for 1 minute
-      gcTime: 5 * 60 * 1000,          // Cache for 5 minutes
-      retry: 3,                        // Retry failed requests 3 times
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      refetchOnWindowFocus: true,     // Refetch on tab focus
-      refetchOnReconnect: true,       // Refetch when back online
-    },
+      staleTime: 5 * 60 * 1000,      // 5 minutes
+      gcTime: 10 * 60 * 1000,         // 10 minutes
+      retry: 3,
+      refetchOnWindowFocus: false
+    }
+  }
+});
+```
+
+**Key Queries:**
+
+1. **Notes Query**:
+```typescript
+useQuery({
+  queryKey: ['notes'],
+  queryFn: async () => {
+    const response = await api.get('/api/notes');
+    return response.data.data.notes;
+  }
+});
+```
+
+2. **Mutations with Optimistic Updates**:
+```typescript
+useMutation({
+  mutationFn: createNote,
+  onMutate: async (newNote) => {
+    // Cancel outgoing refetches
+    await queryClient.cancelQueries({ queryKey: ['notes'] });
+    
+    // Snapshot previous value
+    const previousNotes = queryClient.getQueryData(['notes']);
+    
+    // Optimistically update
+    queryClient.setQueryData(['notes'], (old) => [...old, newNote]);
+    
+    return { previousNotes };
   },
+  onError: (err, newNote, context) => {
+    // Rollback on error
+    queryClient.setQueryData(['notes'], context.previousNotes);
+  },
+  onSettled: () => {
+    // Refetch to sync
+    queryClient.invalidateQueries({ queryKey: ['notes'] });
+  }
 });
 ```
 
----
+#### React Context (Global State)
 
-### 2. Local State (React useState/useReducer)
-
-**Purpose:** Component-specific UI state
-
-```typescript
-// components/NoteEditor.tsx
-export function NoteEditor() {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [color, setColor] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  
-  return (
-    <div className="note-editor">
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Note title"
-      />
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Note content"
-      />
-      {/* ... */}
-    </div>
-  );
-}
-```
-
-**When to use:**
-- Form inputs
-- Modal open/close state
-- Dropdown expanded state
-- Temporary UI state
+**ThemeContext** (`context/ThemeContext.tsx`):
+- Light/dark mode toggle
+- Persists to localStorage
+- CSS variable updates
+- System preference detection
 
 ---
 
-### 3. Theme State (Context API)
+### 3. Offline Storage Layer (IndexedDB)
 
-**Purpose:** Global theme (dark/light) across app
-
-```typescript
-// context/ThemeContext.tsx
-export const ThemeContext = createContext({
-  theme: 'light',
-  toggleTheme: () => {}
-});
-
-export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    // Load from localStorage
-    return localStorage.getItem('theme') || 'light';
-  });
-  
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme', next);
-      document.documentElement.classList.toggle('dark');
-      return next;
-    });
-  }, []);
-  
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-// Usage in components
-function Sidebar() {
-  const { theme, toggleTheme } = useContext(ThemeContext);
-  
-  return (
-    <button onClick={toggleTheme}>
-      {theme === 'light' ? '🌙' : '☀️'}
-    </button>
-  );
-}
-```
-
----
-
-### 4. IndexedDB Cache (Dexie)
-
-**Purpose:** Persistent offline storage
+**Implementation** (`lib/db.ts`):
 
 ```typescript
-// lib/db.ts
-import Dexie, { type Table } from 'dexie';
+import Dexie from 'dexie';
 
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  tags: string[];
-  color?: string;
-  isPinned: boolean;
-  isFavorite: boolean;
-  isArchived: boolean;
-  isTrashed: boolean;
-  userId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-class NotesDatabase extends Dexie {
-  notes!: Table<Note>;
-  users!: Table<User>;
+export class NotesDatabase extends Dexie {
+  notes!: Dexie.Table<Note, string>;
   
   constructor() {
-    super('notesDatabase');
+    super('NotesDB');
     this.version(1).stores({
-      notes: 'id, userId, title, isPinned, isFavorite, isTrashed, updatedAt',
-      users: 'id, email'
+      notes: 'id, title, userId, isPinned, isFavorite, isArchived, createdAt, updatedAt'
     });
   }
 }
 
 export const db = new NotesDatabase();
-
-// Usage in components
-export async function syncNotesToIndexedDB(notes: Note[]) {
-  await db.notes.bulkPut(notes);
-}
-
-export async function getNotesFromIndexedDB(userId: string) {
-  return db.notes
-    .where('userId').equals(userId)
-    .and(note => !note.isTrashed)
-    .sortBy('updatedAt');
-}
 ```
 
-**IndexedDB Tables:**
-- `notes` - All user notes (synced from server)
-- `users` - Current user info
-- `syncQueue` (future) - Pending sync operations
+**Sync Strategy**:
+
+1. **Read**: Check IndexedDB first, then API
+2. **Create**: Write to IndexedDB immediately, sync to API in background
+3. **Update**: Update IndexedDB first, then API
+4. **Delete**: Mark as deleted in IndexedDB, sync to API
+
+**Benefits**:
+- ⚡ Instant UI updates (< 10ms)
+- 📡 Works offline
+- 🔄 Auto-sync when connection restored
+- 💾 Data persists across sessions
+
+---
+
+### 4. API Integration Layer
+
+**HTTP Client** (`lib/api.ts`):
+
+```typescript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Request interceptor
+api.interceptors.request.use(
+  (config) => {
+    // Add request timing
+    config.metadata = { startTime: Date.now() };
+    return config;
+  }
+);
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    // Calculate request duration
+    const duration = Date.now() - response.config.metadata.startTime;
+    logApiRequest(response.config.method, response.config.url, response.status, duration);
+    return response;
+  },
+  (error) => {
+    // Handle errors
+    handleApiError(error);
+    return Promise.reject(error);
+  }
+);
+```
+
+**Error Handling**:
+- Network errors → Show offline banner
+- 401 Unauthorized → Redirect to login
+- 500 Server errors → Show error toast
+- Automatic retry for transient failures
 
 ---
 
 ## Data Flow Patterns
 
-### Pattern 1: Query → Display
+### 1. Optimistic Create Flow
 
-```typescript
-// Fetch and display notes
-function NotesList() {
-  const { data: notes, isLoading, error } = useNotes();
-  
-  if (isLoading) return <Spinner />;
-  if (error) return <ErrorMessage error={error} />;
-  
-  return (
-    <div className="notes-grid">
-      {notes.map(note => (
-        <NoteCard key={note.id} note={note} />
-      ))}
-    </div>
-  );
-}
+```
+User Action (Create Note)
+    ↓
+Generate Temp ID
+    ↓
+Update UI Immediately (< 10ms)
+    ↓
+Save to IndexedDB (< 50ms)
+    ↓
+API Call in Background
+    ↓
+Replace Temp ID with Server ID
+    ↓
+Update IndexedDB with Real ID
+    ↓
+Success ✓
 ```
 
-### Pattern 2: Mutation → Invalidate → Refetch
+### 2. Offline-to-Online Sync Flow
 
+```
+User Creates Note (Offline)
+    ↓
+Save to IndexedDB with sync_pending = true
+    ↓
+Show "Pending Sync" indicator
+    ↓
+Network Restored
+    ↓
+Detect Online Event
+    ↓
+Query IndexedDB for Pending Items
+    ↓
+Batch Upload to API
+    ↓
+Update IndexedDB on Success
+    ↓
+Clear "Pending" indicators
+```
+
+### 3. Real-time Search Flow
+
+```
+User Types in SearchBar
+    ↓
+Debounce Input (300ms)
+    ↓
+Query IndexedDB (Client-side Filter)
+    ↓
+Display Results (< 50ms)
+    ↓
+(Optional) Server-side Search for Advanced Queries
+```
+
+---
+
+## Performance Optimizations
+
+### Code Splitting
+- Automatic route-based splitting by Next.js
+- Dynamic imports for heavy components
+- Lazy loading for editor (TipTap)
+
+### Caching Strategy
+- TanStack Query: 5-minute stale time
+- Service Worker: Cache static assets (PWA)
+- IndexedDB: Persistent client-side cache
+
+### Image Optimization
+- Next.js Image component
+- Automatic WebP conversion
+- Lazy loading with blur placeholder
+
+### Bundle Size
+- Tree shaking with Webpack
+- Bundle analyzer for monitoring
+- Dynamic imports for non-critical code
+
+---
+
+## Security Architecture
+
+### Authentication Flow
+```
+1. Login → Server sets httpOnly cookie
+2. Cookie sent automatically with every request
+3. Server validates session
+4. Frontend never handles tokens directly
+```
+
+### XSS Prevention
+- React auto-escapes by default
+- DOMPurify for user-generated HTML
+- Content Security Policy headers
+
+### CSRF Protection
+- SameSite cookies
+- Origin validation
+- Custom headers for API calls
+
+---
+
+## Testing Architecture
+
+### Unit Tests (Jest + React Testing Library)
 ```typescript
-// Create note with automatic refetch
-function CreateNoteButton() {
-  const createNote = useCreateNote();
+test('NoteCard renders correctly', () => {
+  render(<NoteCard note={mockNote} />);
+  expect(screen.getByText(mockNote.title)).toBeInTheDocument();
+});
+```
+
+### Integration Tests
+```typescript
+test('Creating a note updates the list', async () => {
+  // Test optimistic update + API sync
+});
+```
+
+### E2E Tests (Playwright)
+```typescript
+test('User can create and edit notes', async ({ page }) => {
+  await page.goto('/notes');
+  await page.click('button:has-text("New Note")');
+  await page.fill('input[name="title"]', 'Test Note');
+  await page.click('button:has-text("Save")');
+  await expect(page.locator('text=Test Note')).toBeVisible();
+});
+```
+
+### Accessibility Tests (jest-axe)
+```typescript
+test('NoteCard has no accessibility violations', async () => {
+  const { container } = render(<NoteCard note={mockNote} />);
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```
+
+---
+
+## Design Patterns
+
+### 1. Custom Hooks Pattern
+```typescript
+// useNotes hook encapsulates all notes logic
+export function useNotes() {
+  const query = useQuery(['notes'], fetchNotes);
+  const createMutation = useMutation(createNote);
+  const updateMutation = useMutation(updateNote);
+  const deleteMutation = useMutation(deleteNote);
   
-  const handleCreate = async () => {
-    await createNote.mutateAsync({
-      title: 'New Note',
-      content: ''
-    });
-    // TanStack Query automatically refetches notes
+  return {
+    notes: query.data,
+    isLoading: query.isLoading,
+    createNote: createMutation.mutate,
+    updateNote: updateMutation.mutate,
+    deleteNote: deleteMutation.mutate
   };
-  
-  return (
-    <button onClick={handleCreate} disabled={createNote.isPending}>
-      {createNote.isPending ? 'Creating...' : 'New Note'}
-    </button>
-  );
 }
 ```
 
-### Pattern 3: Optimistic Update
-
+### 2. Provider Pattern
 ```typescript
-// Update note with optimistic UI
-function UpdateNoteButton({ noteId, updates }) {
-  const updateNote = useUpdateNote();
-  
-  const handleUpdate = async () => {
-    await updateNote.mutateAsync({ id: noteId, ...updates });
-  };
-  
-  return <button onClick={handleUpdate}>Update</button>;
-}
+// Wrap app with multiple providers
+<QueryClientProvider client={queryClient}>
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+</QueryClientProvider>
+```
 
-function useUpdateNote() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ id, ...updates }) => 
-      api.put(`/api/notes/${id}`, updates),
-    
-    onMutate: async ({ id, ...updates }) => {
-      await queryClient.cancelQueries({ queryKey: ['notes'] });
-      
-      const previous = queryClient.getQueryData(['notes']);
-      
-      // Optimistically update
-      queryClient.setQueryData(['notes'], (old) => 
-        old.map(note => 
-          note.id === id ? { ...note, ...updates } : note
-        )
-      );
-      
-      return { previous };
-    },
-    
-    onError: (err, variables, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['notes'], context.previous);
-    },
-    
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-    }
-  });
-}
+### 3. Compound Component Pattern
+```typescript
+<NoteCard>
+  <NoteCard.Header />
+  <NoteCard.Content />
+  <NoteCard.Footer />
+</NoteCard>
+```
+
+### 4. Render Props Pattern (TanStack Query)
+```typescript
+<Query query={notesQuery}>
+  {({ data, isLoading, error }) => {
+    if (isLoading) return <Spinner />;
+    if (error) return <Error />;
+    return <NotesList notes={data} />;
+  }}
+</Query>
 ```
 
 ---
 
-## Performance Optimization
+## Monitoring & Observability
 
-### 1. Code Splitting
+### Web Vitals Tracking
+- LCP (Largest Contentful Paint)
+- FID (First Input Delay)
+- CLS (Cumulative Layout Shift)
+- TTFB (Time to First Byte)
 
-```typescript
-// Lazy load heavy components
-import dynamic from 'next/dynamic';
+### Custom Metrics
+- API request duration
+- IndexedDB operation time
+- Component render time
+- User interaction events
 
-const MetricsDashboard = dynamic(() => import('@/components/MetricsDashboard'), {
-  loading: () => <Spinner />,
-  ssr: false  // Client-side only
-});
-
-const ColorPicker = dynamic(() => import('@/components/ColorPicker'));
-```
-
-### 2. React Query Caching
-
-```typescript
-// Aggressive caching for rarely-changing data
-useQuery({
-  queryKey: ['user', 'me'],
-  queryFn: fetchCurrentUser,
-  staleTime: Infinity,  // Never refetch automatically
-  gcTime: Infinity,     // Keep in cache forever
-});
-
-// Short-lived cache for frequently-changing data
-useQuery({
-  queryKey: ['notes'],
-  queryFn: fetchNotes,
-  staleTime: 1 * 60 * 1000,  // 1 minute
-  gcTime: 5 * 60 * 1000,     // 5 minutes
-});
-```
-
-### 3. IndexedDB Caching
-
-```typescript
-// Initial page load: Read from IndexedDB (fast)
-useEffect(() => {
-  db.notes.toArray().then(setNotes);
-}, []);
-
-// Background: Fetch from API (slower)
-useQuery({
-  queryKey: ['notes'],
-  queryFn: fetchNotes,
-  onSuccess: (apiNotes) => {
-    db.notes.bulkPut(apiNotes);  // Update cache
-  }
-});
-```
-
-### 4. Memoization
-
-```typescript
-// Memoize expensive computations
-const filteredNotes = useMemo(() => {
-  return notes.filter(note => {
-    const matchesSearch = note.title.toLowerCase().includes(search.toLowerCase());
-    const matchesTags = selectedTags.length === 0 || 
-      selectedTags.some(tag => note.tags.includes(tag));
-    return matchesSearch && matchesTags && !note.isTrashed;
-  });
-}, [notes, search, selectedTags]);
-
-// Memoize callbacks
-const handleSearch = useCallback((value: string) => {
-  setSearch(value);
-}, []);
-```
+### Error Tracking
+- Unhandled exceptions
+- API errors
+- Network failures
+- Console errors (in production)
 
 ---
 
-## Error Handling
+## Future Architecture Improvements
 
-### API Error Boundaries
+### Planned Enhancements
+1. **WebSocket Integration** - Real-time collaborative editing
+2. **Service Worker** - Enhanced offline capabilities
+3. **Web Workers** - Heavy computation off main thread
+4. **React Server Components** - Better performance for static content
+5. **Suspense Boundaries** - Better loading states
+6. **Code Streaming** - Progressive hydration
 
-```typescript
-// Global error boundary
-export function ErrorBoundary({ children }) {
-  return (
-    <QueryErrorResetBoundary>
-      {({ reset }) => (
-        <ReactErrorBoundary
-          onReset={reset}
-          fallbackRender={({ error, resetErrorBoundary }) => (
-            <div className="error-container">
-              <h2>Something went wrong</h2>
-              <p>{error.message}</p>
-              <button onClick={resetErrorBoundary}>Try again</button>
-            </div>
-          )}
-        >
-          {children}
-        </ReactErrorBoundary>
-      )}
-    </QueryErrorResetBoundary>
-  );
-}
-```
-
-### Query Error Handling
-
-```typescript
-const { data, error, isError } = useQuery({
-  queryKey: ['notes'],
-  queryFn: fetchNotes,
-  retry: (failureCount, error) => {
-    // Don't retry on 4xx errors
-    if (error.response?.status >= 400 && error.response?.status < 500) {
-      return false;
-    }
-    return failureCount < 3;
-  },
-});
-
-if (isError) {
-  return <ErrorMessage error={error} />;
-}
-```
+### Scalability Considerations
+- Virtual scrolling for large lists
+- Pagination for API queries
+- Lazy loading for images
+- Route prefetching
 
 ---
 
-## TypeScript Integration
+## Best Practices
 
-### Type-Safe API Client
+### Component Guidelines
+- Keep components small and focused
+- Use TypeScript for type safety
+- Extract custom hooks for reusable logic
+- Implement error boundaries
+- Add loading and error states
 
-```typescript
-// types/api.ts
-export interface Note {
-  id: string;
-  title: string;
-  content: string;
-  tags: string[];
-  color?: string;
-  isPinned: boolean;
-  isFavorite: boolean;
-  isArchived: boolean;
-  isTrashed: boolean;
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-}
+### Performance Guidelines
+- Memoize expensive computations (useMemo)
+- Prevent unnecessary re-renders (React.memo)
+- Debounce user input
+- Lazy load heavy components
+- Optimize images with Next.js Image
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  error?: string;
-}
-
-// lib/api.ts
-export async function fetchNotes(): Promise<Note[]> {
-  const response = await api.get<ApiResponse<Note[]>>('/api/notes');
-  return response.data.data;
-}
-```
+### Accessibility Guidelines
+- Semantic HTML
+- ARIA labels where needed
+- Keyboard navigation
+- Focus management
+- Screen reader support
 
 ---
 
-**Last Updated**: December 13, 2025  
-**Architecture Version**: 1.0
+## Conclusion
+
+The frontend architecture is designed for:
+- ⚡ **Performance** - Offline-first with optimistic updates
+- 🔒 **Security** - Cookie-based auth, XSS prevention
+- 📱 **PWA** - Installable, works offline
+- 🌐 **i18n** - Multi-language support
+- ♿ **Accessibility** - WCAG 2.1 compliant
+- 🧪 **Testable** - Unit, integration, E2E, and a11y tests
+
+This architecture supports rapid development while maintaining production-grade quality.

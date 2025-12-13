@@ -46,7 +46,6 @@ export function setupConsoleErrorTracking() {
 
   const originalError = console.error;
   console.error = (...args: any[]) => {
-    // Log to original console
     originalError.apply(console, args);
 
     // Track in development

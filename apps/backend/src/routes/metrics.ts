@@ -76,7 +76,6 @@ router.post("/reset", (req: Request, res: Response) => {
 router.post("/vitals", (req: Request, res: Response) => {
   const { name, value, rating, id, navigationType } = req.body;
 
-  // Log Core Web Vitals
   if (process.env.ENABLE_WEB_VITALS_LOGGING === "true") {
     const color = rating === "good" ? "\x1b[32m" : rating === "needs-improvement" ? "\x1b[33m" : "\x1b[31m";
     const reset = "\x1b[0m";

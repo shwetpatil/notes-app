@@ -71,7 +71,6 @@ apiClient.interceptors.response.use(
       status
     );
 
-    // Log with structured logging
     logApiRequest(
       config?.method?.toUpperCase() || 'GET',
       config?.url || '',

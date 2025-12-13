@@ -4,12 +4,9 @@ import { prisma } from "../config";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import { authRateLimiter } from "../middleware/rateLimiter";
+import { AUTH_CONSTANTS } from "../constants";
 
 const router: Router = Router();
-
-const SALT_ROUNDS = 12;
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
 
 /**
  * @swagger
@@ -102,7 +99,7 @@ router.post("/register", authRateLimiter, async (req: Request, res: Response) =>
     }
 
     // Hash password with bcrypt
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, AUTH_CONSTANTS.SALT_ROUNDS);
 
     // Create new user with hashed password
     const user = await prisma.user.create({
@@ -217,14 +214,14 @@ router.post("/login", authRateLimiter, async (req: Request, res: Response) => {
     if (!isValidPassword) {
       // Increment failed login attempts
       const updatedAttempts = user.failedLoginAttempts + 1;
-      const shouldLock = updatedAttempts >= MAX_LOGIN_ATTEMPTS;
+      const shouldLock = updatedAttempts >= AUTH_CONSTANTS.MAX_LOGIN_ATTEMPTS;
 
       await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: updatedAttempts,
           accountLockedUntil: shouldLock
-            ? new Date(Date.now() + LOCK_TIME)
+            ? new Date(Date.now() + AUTH_CONSTANTS.ACCOUNT_LOCK_DURATION)
             : null,
         },
       });

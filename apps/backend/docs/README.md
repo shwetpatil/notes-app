@@ -30,14 +30,15 @@ pnpm dev
 
 ### 🏗️ Architecture & Design
 
-**[ARCHITECTURE_BACKEND.md](./ARCHITECTURE_BACKEND.md)** - Backend architecture
-- Backend technology stack
-- Layer architecture (7 layers)
+**[ARCHITECTURE.md](./ARCHITECTURE.md)** - Backend architecture
+- Backend technology stack (Express + TypeScript + Prisma)
+- Layer architecture (4-layer pattern)
 - Request lifecycle (detailed)
 - Middleware chain visualization
 - Core middleware explained
 - Performance monitoring
 - Cluster mode architecture
+- Design patterns and best practices
 
 **[DATABASE.md](./DATABASE.md)** - Database design
 - PostgreSQL schema (User, Note, Session tables)

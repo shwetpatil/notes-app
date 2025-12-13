@@ -1,0 +1,80 @@
+{
+  "common": {
+    "appName": "Application de Notes",
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "register": "S'inscrire",
+    "email": "Email",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "forgotPassword": "Mot de passe oublié?",
+    "noAccount": "Vous n'avez pas de compte?",
+    "hasAccount": "Vous avez déjà un compte?",
+    "loginSuccess": "Connexion réussie!",
+    "logoutSuccess": "Déconnexion réussie",
+    "registerSuccess": "Inscription réussie!"
+  },
+  "notes": {
+    "title": "Notes",
+    "newNote": "Nouvelle Note",
+    "editNote": "Modifier la Note",
+    "deleteNote": "Supprimer la Note",
+    "searchNotes": "Rechercher des notes...",
+    "noNotes": "Aucune note pour le moment. Créez votre première note!",
+    "noteTitle": "Titre de la Note",
+    "noteContent": "Contenu de la Note",
+    "tags": "Étiquettes",
+    "addTag": "Ajouter une Étiquette",
+    "pinNote": "Épingler la Note",
+    "unpinNote": "Désépingler la Note",
+    "favoriteNote": "Marquer comme Favori",
+    "unfavoriteNote": "Retirer des Favoris",
+    "archiveNote": "Archiver la Note",
+    "unarchiveNote": "Désarchiver la Note",
+    "color": "Couleur",
+    "createdAt": "Créé",
+    "updatedAt": "Mis à jour",
+    "saveSuccess": "Note enregistrée avec succès",
+    "deleteSuccess": "Note supprimée avec succès",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette note?"
+  },
+  "templates": {
+    "title": "Modèles",
+    "newTemplate": "Nouveau Modèle",
+    "editTemplate": "Modifier le Modèle",
+    "deleteTemplate": "Supprimer le Modèle",
+    "useTemplate": "Utiliser le Modèle",
+    "noTemplates": "Aucun modèle disponible"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "language": "Langue",
+    "profile": "Profil",
+    "preferences": "Préférences",
+    "account": "Compte"
+  },
+  "errors": {
+    "generic": "Une erreur s'est produite. Veuillez réessayer.",
+    "network": "Erreur réseau. Veuillez vérifier votre connexion.",
+    "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
+    "notFound": "La ressource demandée n'a pas été trouvée.",
+    "serverError": "Erreur du serveur. Veuillez réessayer plus tard.",
+    "validationError": "Veuillez vérifier votre saisie et réessayer."
+  }
+}

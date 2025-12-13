@@ -29,14 +29,15 @@ All documentation is in the [`docs/`](./docs/) folder:
 - **[Quick Start Guide](./docs/QUICKSTART.md)** - Get up and running fast
 - **[Complete Documentation](./docs/README.md)** - Full project documentation  
 - **[Architecture](./docs/ARCHITECTURE.md)** - System design and diagrams
-- **[Command Reference](./docs/CHEATSHEET.md)** - Essential commands
-- **[Documentation Index](./docs/INDEX.md)** - Navigate all docs
+- **[Backend Documentation](./apps/backend/docs/README.md)** - Backend-specific docs
+- **[Frontend Documentation](./apps/frontend/docs/README.md)** - Frontend-specific docs
 
 ## 🛠️ Tech Stack
 
-**Frontend:** Next.js 15, React 18, TypeScript, Tailwind CSS, TanStack Query, Dexie  
-**Backend:** Express, Node.js, Prisma, PostgreSQL, TypeScript  
-**Tools:** pnpm workspaces, Vitest, Playwright, GitHub Actions
+**Frontend:** Next.js 15, React 18, TypeScript, Tailwind CSS, TanStack Query, Dexie, Jest  
+**Backend:** Express, Node.js, Prisma, PostgreSQL, TypeScript, Vitest  
+**Shared:** pnpm workspaces, Storybook, TypeScript types  
+**Tools:** GitHub Actions, Docker, Playwright
 
 ## 📁 Project Structure
 

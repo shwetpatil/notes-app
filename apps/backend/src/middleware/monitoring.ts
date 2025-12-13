@@ -93,7 +93,6 @@ export function performanceMonitoring(
         metrics.error = res.statusMessage || "Unknown error";
       }
 
-      // Log metrics
       logMetrics(metrics, cpuUsage);
 
       // Clean up
@@ -147,7 +146,6 @@ function logMetrics(metrics: APIMetrics, cpuUsage: NodeJS.CpuUsage) {
       rating
     }, `📊 Performance: ${metrics.method} ${metrics.path}`);
 
-    // Log slow requests
     if (metrics.duration > 1000) {
       logger.warn({
         method: metrics.method,
@@ -158,7 +156,6 @@ function logMetrics(metrics: APIMetrics, cpuUsage: NodeJS.CpuUsage) {
       }, '⚠️  Slow request detected');
     }
 
-    // Log errors
     if (metrics.statusCode >= 500) {
       logger.error({
         method: metrics.method,

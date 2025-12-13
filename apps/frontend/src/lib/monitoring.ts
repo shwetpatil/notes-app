@@ -57,7 +57,6 @@ function reportWebVital(metric: PerformanceMetric) {
     }
   });
 
-  // Log in development
   if (process.env.NODE_ENV === 'development') {
     const logFn = metric.rating === 'good' ? perfLogger.success : metric.rating === 'needs-improvement' ? perfLogger.warn : perfLogger.error;
     logFn(`🎯 Web Vital ${metric.name}: ${Math.round(metric.value)}ms`, { rating: metric.rating });

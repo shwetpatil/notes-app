@@ -1,0 +1,80 @@
+{
+  "common": {
+    "appName": "Aplicación de Notas",
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "register": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "name": "Nombre",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "noAccount": "¿No tienes una cuenta?",
+    "hasAccount": "¿Ya tienes una cuenta?",
+    "loginSuccess": "¡Inicio de sesión exitoso!",
+    "logoutSuccess": "Sesión cerrada exitosamente",
+    "registerSuccess": "¡Registro exitoso!"
+  },
+  "notes": {
+    "title": "Notas",
+    "newNote": "Nueva Nota",
+    "editNote": "Editar Nota",
+    "deleteNote": "Eliminar Nota",
+    "searchNotes": "Buscar notas...",
+    "noNotes": "No hay notas todavía. ¡Crea tu primera nota!",
+    "noteTitle": "Título de la Nota",
+    "noteContent": "Contenido de la Nota",
+    "tags": "Etiquetas",
+    "addTag": "Agregar Etiqueta",
+    "pinNote": "Fijar Nota",
+    "unpinNote": "Desfijar Nota",
+    "favoriteNote": "Marcar como Favorita",
+    "unfavoriteNote": "Desmarcar Favorita",
+    "archiveNote": "Archivar Nota",
+    "unarchiveNote": "Desarchivar Nota",
+    "color": "Color",
+    "createdAt": "Creado",
+    "updatedAt": "Actualizado",
+    "saveSuccess": "Nota guardada exitosamente",
+    "deleteSuccess": "Nota eliminada exitosamente",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar esta nota?"
+  },
+  "templates": {
+    "title": "Plantillas",
+    "newTemplate": "Nueva Plantilla",
+    "editTemplate": "Editar Plantilla",
+    "deleteTemplate": "Eliminar Plantilla",
+    "useTemplate": "Usar Plantilla",
+    "noTemplates": "No hay plantillas disponibles"
+  },
+  "settings": {
+    "title": "Configuración",
+    "theme": "Tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "language": "Idioma",
+    "profile": "Perfil",
+    "preferences": "Preferencias",
+    "account": "Cuenta"
+  },
+  "errors": {
+    "generic": "Ocurrió un error. Por favor, inténtalo de nuevo.",
+    "network": "Error de red. Por favor, verifica tu conexión.",
+    "unauthorized": "No estás autorizado para realizar esta acción.",
+    "notFound": "El recurso solicitado no fue encontrado.",
+    "serverError": "Error del servidor. Por favor, inténtalo más tarde.",
+    "validationError": "Por favor, verifica tu entrada e inténtalo de nuevo."
+  }
+}
