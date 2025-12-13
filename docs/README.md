@@ -2,51 +2,95 @@
 
 **Complete system-level documentation for the Notes Application**
 
-This documentation covers the entire system architecture, deployment strategies, security model, and operational concerns. For component-specific documentation, see:
-- [Backend Documentation](../apps/backend/docs/README.md)
-- [Frontend Documentation](../apps/frontend/docs/README.md)
+This documentation covers overall system architecture, deployment strategies, security model, and operational concerns.
 
 ---
 
-## 📚 Documentation Index
+## 📂 Documentation Structure
 
-### 🏗️ System Architecture
+### 🏗️ [System Architecture](./system/)
+High-level system design and technical architecture
+- [Overview](./system/overview.md) - System overview and features
+- [Architecture](./system/architecture.md) - System design and components  
+- [Security Model](./system/security-model.md) - End-to-end security
+- [Performance](./system/performance.md) - System-wide performance
+- [Deployment](./system/deployment.md) - Deployment strategies
+- [Observability](./system/observability.md) - Logging and monitoring
+- [Features](./system/features.md) - Complete feature list
+- [Logging](./system/logging.md) - Logging infrastructure
 
-**[ARCHITECTURE.md](./ARCHITECTURE.md)** - Overall system design
-- Frontend-Backend interaction patterns
-- Monorepo structure and organization
-- Communication protocols (REST API)
-- Data flow across the stack
-- Component relationships
-- System boundaries and interfaces
+### 📝 [Architecture Decision Records](./adr/)
+Important architectural decisions and their rationale
+- [ADR-0001: Technology Stack](./adr/0001-tech-stack.md)
+- [ADR-0002: Architecture Style](./adr/0002-architecture-style.md)
+- [ADR-0003: Authentication Model](./adr/0003-authentication-model.md)
+- [ADR-0004: Database Choice](./adr/0004-database-choice.md)
+- [ADR-0005: Deployment Strategy](./adr/0005-deployment-strategy.md)
+
+### 💻 [Development](./development/)
+Developer guides and workflows
+- [Onboarding](./development/onboarding.md) - Getting started guide
+- [Local Setup](./development/local-setup.md) - Development environment
+- [Conventions](./development/conventions.md) - Code standards and documentation structure
+- [Branching & Release](./development/branching-release.md) - Git workflow
+- [Debugging](./development/debugging.md) - Debugging techniques
+
+### ⚙️ [Operations](./operations/)
+Production operations and incident management
+- [Runbooks](./operations/runbooks.md) - Operational procedures
+- [Monitoring & Alerts](./operations/monitoring-alerts.md) - System monitoring
+- [Incident Management](./operations/incident-management.md) - Incident response
+- [Roadmap](./operations/roadmap.md) - Feature roadmap
 
 ---
 
-### 🚀 Deployment & Operations
+## 📚 Component Documentation
 
-**[DEPLOYMENT.md](./DEPLOYMENT.md)** - Production deployment guide
-- Docker containerization
-- Cloud deployment (AWS, GCP, Azure)
-- Kubernetes configuration
-- CI/CD pipelines
-- Environment management
-- Scaling strategies (horizontal & vertical)
+### Backend
+**[Backend Documentation](../apps/backend/docs/README.md)**  
+API server, database, authentication, and backend services
 
----
+### Frontend
+**[Frontend Documentation](../apps/frontend/docs/README.md)**  
+UI, state management, offline-first architecture
 
-### 🔒 Security Model
-
-**[SECURITY.md](./SECURITY.md)** - System-wide security architecture
-- End-to-end security overview
-- Authentication flow (frontend → backend → database)
-- Authorization model
-- Network security (HTTPS, CORS, CSP)
-- Data encryption (in-transit, at-rest)
-- Security policies and compliance
+### Packages
+**[Packages Documentation](../packages/docs/README.md)**  
+Shared types, UI components, and utilities
 
 ---
 
-### 📊 Performance & Observability
+## 🚀 Quick Links
+
+### For New Developers
+1. [Onboarding Guide](./development/onboarding.md)
+2. [Local Setup](./development/local-setup.md)
+3. [System Overview](./system/overview.md)
+
+### For Architects
+1. [System Architecture](./system/architecture.md)
+2. [ADRs](./adr/)
+3. [Security Model](./system/security-model.md)
+
+### For DevOps
+1. [Deployment Guide](./system/deployment.md)
+2. [Operations Runbooks](./operations/runbooks.md)
+3. [Monitoring](./operations/monitoring-alerts.md)
+
+---
+
+## 🛠️ Technology Stack
+
+**Frontend:** Next.js 15, React 18, TypeScript, Tailwind CSS, TanStack Query, Dexie  
+**Backend:** Express, Node.js, Prisma, PostgreSQL, Redis, TypeScript  
+**Infrastructure:** Docker, AWS/GCP/Azure, GitHub Actions  
+**Monitoring:** Pino (logging), Web Vitals, Custom metrics
+
+---
+
+## 📄 License
+
+MIT License - See LICENSE file for details
 
 **[PERFORMANCE.md](./PERFORMANCE.md)** - System performance (Coming soon)
 - Performance benchmarks (throughput, latency)

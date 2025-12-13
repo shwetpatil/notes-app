@@ -2,7 +2,7 @@
 
 **Notes Application Backend - Express.js + Prisma + PostgreSQL + TypeScript**
 
-This documentation covers all backend-specific concerns. For system-level documentation, see [System Documentation](../../../docs/README.md).
+Complete technical documentation for the backend API server, database, and authentication services.
 
 ---
 
@@ -26,157 +26,85 @@ pnpm dev
 
 ---
 
-## 📚 Documentation Index
+## � Documentation Structure
 
-### 🏗️ Architecture & Design
+### 🏗️ [System Architecture](./system/)
+Core technical architecture and design
+- [Architecture](./system/architecture.md) - Backend design and organization
+- [Database](./system/database.md) - PostgreSQL schema and operations
+- [API Reference](./system/api-reference.md) - REST API endpoints
+- [Performance](./system/performance.md) - Optimization strategies
+- [Security](./system/security.md) - Security architecture
+- [Authentication](./system/authentication.md) - JWT authentication system
+- [Features](./system/features.md) - Backend features
+- [Tech Stack](./system/tech-stack.md) - Technology choices
+- [Observability](./system/observability.md) - Logging and monitoring
+- [Database Security](./system/database-security.md) - Database security measures
 
-**[ARCHITECTURE.md](./ARCHITECTURE.md)** - Backend architecture
-- Backend technology stack (Express + TypeScript + Prisma)
-- Layer architecture (4-layer pattern)
-- Request lifecycle (detailed)
-- Middleware chain visualization
-- Core middleware explained
-- Performance monitoring
-- Cluster mode architecture
-- Design patterns and best practices
+### 📝 [Architecture Decision Records](./adr/)
+Key technical decisions and rationale
+- [ADR-0001: Express vs Fastify](./adr/0001-express-choice.md) *(to be created)*
+- [ADR-0002: Prisma ORM](./adr/0002-prisma-orm.md) *(to be created)*
+- [ADR-0003: JWT Strategy](./adr/0003-jwt-strategy.md) *(to be created)*
+- [ADR-0004: Logging Framework](./adr/0004-logging-framework.md) *(to be created)*
+- [ADR-0005: Error Handling Pattern](./adr/0005-error-handling.md) *(to be created)*
 
-**[DATABASE.md](./DATABASE.md)** - Database design
-- PostgreSQL schema (User, Note, Session tables)
-- Entity relationship diagrams
-- Indexing strategy
-- Query optimization
-- Data types & constraints
-- Migrations
-- Backup & recovery
+### 💻 [Development](./development/)
+Developer guides and workflows
+- [Quickstart](./development/quickstart.md) - Getting started with backend
+- [Configuration](./development/configuration.md) - Environment configuration
+- [Testing](./development/testing.md) - Testing strategy and practices
+- [Advanced Features](./development/advanced-features.md) - Advanced capabilities
+- [Debugging](./development/debugging.md) - Debugging techniques *(to be created)*
+- [Database Migrations](./development/migrations.md) - Managing schema changes *(to be created)*
 
----
-
-### 🔒 Security
-
-**[SECURITY.md](./SECURITY.md)** - Security implementation
-- Multi-layer security architecture
-- Password hashing (bcrypt)
-- Session management
-- Rate limiting
-- Attack prevention (XSS, CSRF, SQL injection)
-- Security headers (Helmet)
-- Security checklist
-
-**[AUTH.md](./AUTH.md)** - Authentication & Authorization
-- Session-based authentication
-- Registration flow
-- Login flow with account lockout
-- Session verification
-- Row-level security
-- Authorization patterns
-- TypeScript type safety
-- Testing authentication
+### ⚙️ [Operations](./operations/)
+Deployment and production operations
+- [Deployment](./operations/deployment.md) - Deployment strategies
+- [Roadmap](./operations/roadmap.md) - Feature roadmap
+- [Production Features](./operations/production-features.md) - Production capabilities
+- [Monitoring & Alerts](./operations/monitoring-alerts.md) - System monitoring *(to be created)*
+- [Runbooks](./operations/runbooks.md) - Operational procedures *(to be created)*
+- [Incident Response](./operations/incident-response.md) - Handling incidents *(to be created)*
 
 ---
 
-### 📡 API & Integration
+## 🚀 Quick Links
 
-**[API.md](./API.md)** - API documentation
-- RESTful endpoints
-- Request/response formats
-- Authentication endpoints
-- Notes CRUD operations
-- Health & metrics endpoints
-- Error handling
-- API examples
+### For New Developers
+1. [Quickstart Guide](./development/quickstart.md)
+2. [Architecture Overview](./system/architecture.md)
+3. [API Reference](./system/api-reference.md)
 
-**[CONFIGURATION.md](./CONFIGURATION.md)** - Backend configuration
-- Environment variables
-- Configuration files (.env, tsconfig.json, prisma/schema.prisma)
-- Loading configuration
-- Development vs Production config
-- Docker configuration
-- Troubleshooting configuration
+### For Backend Engineers
+1. [System Architecture](./system/architecture.md)
+2. [Database Design](./system/database.md)
+3. [Authentication System](./system/authentication.md)
+4. [Testing Guide](./development/testing.md)
 
----
-
-### ⚡ Performance & Operations
-
-**[PERFORMANCE.md](./PERFORMANCE.md)** - Performance optimization
-- Database indexing & query optimization
-- Cluster mode (multi-core utilization)
-- Connection pooling
-- Query performance analysis
-- Caching strategies
-- Monitoring & profiling
-
-**[DEPLOYMENT.md](./DEPLOYMENT.md)** - Backend deployment
-- Docker containerization
-- Cloud deployment (AWS ECS, GCP Cloud Run, Azure)
-- Environment configuration
-- Database migrations in production
-- Health checks & load balancing
-- Scaling strategies
+### For DevOps
+1. [Deployment Guide](./operations/deployment.md)
+2. [Production Features](./operations/production-features.md)
+3. [Monitoring](./operations/monitoring-alerts.md) *(to be created)*
 
 ---
 
-### 🧪 Testing & Quality
+## 🛠️ Technology Stack
 
-**[TESTING.md](./TESTING.md)** - Testing guide
-- Test setup & configuration
-- Running tests (vitest)
-- Test structure & organization
-- Writing tests (auth, notes API, middleware, health)
-- Test helpers & utilities
-- Coverage reports
-- CI/CD integration
-- Troubleshooting tests
-
----
-
-### 📖 Features & Reference
-
-**[FEATURES.md](./FEATURES.md)** - Backend features
-- Authentication system
-- Notes CRUD operations
-- Search & filtering
-- Tags & organization
-- Soft delete (trash)
-- Rate limiting
-- Security features
-
-**[QUICKSTART.md](./QUICKSTART.md)** - Quick start guide
-- Prerequisites
-- Installation steps
-- Database setup
-- Running the server
-- Verify setup
-- Common commands
-
-**[ROADMAP.md](./ROADMAP.md)** - Backend roadmap
-- Current features (v1.0)
-- Q1 2026: Real-time collaboration (WebSockets)
-- Q2 2026: File attachments (S3), Search (Elasticsearch)
-- Q3 2026: GraphQL API
-- Q4 2026: AI features (summarization, auto-tagging)
-
-**[TECH_STACK.md](./TECH_STACK.md)** - Backend technology stack
-- Express.js 4.18 - Web framework
-- Prisma ORM 5.7 - Database ORM
-- PostgreSQL 16 - Database
-- bcrypt 6.0 - Password hashing
-- Zod 3.22 - Schema validation
-- Full stack details with versions
+**Runtime:** Node.js 20+ with TypeScript 5.6  
+**Framework:** Express 5.0  
+**Database:** PostgreSQL 16+ with Prisma 6.8  
+**Security:** JWT, bcrypt, Helmet, rate limiting  
+**Testing:** Jest 30.2, Supertest, Vitest  
+**Logging:** Pino  
 
 ---
 
 ## 🔗 Related Documentation
 
-### System Documentation
-- [System Architecture](../../../docs/ARCHITECTURE.md) - Overall system design
-- [Deployment](../../../docs/DEPLOYMENT.md) - Full-stack deployment
-- [Security Model](../../../docs/SECURITY.md) - System-wide security
-- [Development Workflow](../../../docs/DEVELOPMENT.md) - Git workflow & practices
-
-### Frontend Documentation
-- [Frontend README](../../frontend/docs/README.md) - Frontend documentation
-- [Frontend Architecture](../../frontend/docs/ARCHITECTURE.md) - Frontend design
-- [API Integration](../../frontend/docs/API_INTEGRATION.md) - How frontend consumes backend API
+- [System Documentation](../../../docs/README.md) - Overall system architecture
+- [Frontend Documentation](../../frontend/docs/README.md) - Frontend UI and state management
+- [Packages Documentation](../../../packages/docs/README.md) - Shared types and UI components
 
 ---
 
@@ -326,38 +254,7 @@ See [System Development Guide](../../../docs/DEVELOPMENT.md) for:
 
 **Last Updated**: December 13, 2025  
 **Backend Version**: 1.0.0  
-**Documentation Version**: 2.0
-
-🧪 **[TESTING.md](./TESTING.md)** - Testing guide
-- Test setup & configuration
-- Running tests & coverage
-- Writing tests & best practices
-- Test helpers & utilities
-- Troubleshooting
-- Cluster mode (multi-process)
-- Memory management
-- Monitoring & metrics
-- Load testing
-
-### Deployment & Operations
-
-🚀 **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Deployment guide
-- Local development
-- Docker deployment
-- Production setup
-- Environment configuration
-
-☁️ **[CLOUD_DEPLOYMENT.md](./CLOUD_DEPLOYMENT.md)** - Cloud platforms
-- AWS (ECS, Fargate)
-- Google Cloud (Cloud Run)
-- Azure (Container Instances)
-- CI/CD with GitHub Actions
-
-📊 **[MONITORING.md](./MONITORING.md)** - Monitoring & metrics
-- Health checks
-- Performance metrics
-- Core Web Vitals tracking
-- Error monitoring
+**Documentation Version**: 3.0
 
 📏 **[SCALING.md](./SCALING.md)** - Scaling strategies
 - Vertical scaling (cluster mode)

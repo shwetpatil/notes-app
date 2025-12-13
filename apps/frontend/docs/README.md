@@ -2,69 +2,41 @@
 
 **Notes Application Frontend - Next.js 15 + React 18 + TypeScript**
 
-Modern, production-ready frontend with offline-first architecture and real-time features.
-
-This documentation covers all frontend-specific concerns. For system-level documentation, see [System Documentation](../../../docs/README.md).
+Modern, production-ready frontend with offline-first architecture, real-time features, and accessibility.
 
 ---
 
-## 📚 Documentation Index
+## 📂 Documentation Structure
 
-### 🏗️ Architecture & Design
+### 🏗️ [System Architecture](./system/)
+Core technical architecture and design
+- [Architecture](./system/architecture.md) - Frontend design and patterns
+- [Performance](./system/performance.md) - Optimization strategies
+- [Security](./system/security.md) - Security implementation
+- [Features](./system/features.md) - Frontend features *(to be created)*
+- [State Management](./system/state-management.md) - Data flow patterns *(to be created)*
 
-**[ARCHITECTURE.md](./ARCHITECTURE.md)** - Frontend architecture
-- Technology stack and layers
-- Data flow patterns (offline-first)
-- State management (TanStack Query + React Context)
-- IndexedDB integration
-- Design patterns and best practices
+### 📝 [Architecture Decision Records](./adr/)
+Key technical decisions and rationale
+- [ADR-0001: Next.js App Router](./adr/0001-app-router.md) *(to be created)*
+- [ADR-0002: Offline-First Strategy](./adr/0002-offline-first.md) *(to be created)*
+- [ADR-0003: TanStack Query](./adr/0003-tanstack-query.md) *(to be created)*
+- [ADR-0004: IndexedDB Choice](./adr/0004-indexeddb.md) *(to be created)*
+- [ADR-0005: Tailwind CSS](./adr/0005-tailwind.md) *(to be created)*
 
----
+### 💻 [Development](./development/)
+Developer guides and workflows
+- [Testing](./development/testing.md) - Testing strategy and practices
+- [Advanced Features](./development/advanced-features.md) - PWA, i18n, bundle analysis
+- [Component Guidelines](./development/component-guidelines.md) - Component patterns *(to be created)*
+- [Debugging](./development/debugging.md) - Debugging techniques *(to be created)*
+- [Accessibility](./development/accessibility.md) - A11y best practices *(to be created)*
 
-### ⚡ Performance
-
-**[PERFORMANCE.md](./PERFORMANCE.md)** - Performance optimization
-- Bundle optimization and code splitting
-- React performance (memoization, virtual scrolling)
-- Network optimization (caching, prefetching)
-- Asset optimization (images, fonts, icons)
-- Web Vitals monitoring
-- Performance budget enforcement
-
----
-
-### 🔒 Security
-
-**[SECURITY.md](./SECURITY.md)** - Frontend security
-- Cookie-based authentication
-- XSS prevention (React + DOMPurify + CSP)
-- CSRF protection (SameSite cookies)
-- Input validation (Zod + server-side)
-- Secure data storage (IndexedDB encryption)
-- Security headers and testing
-
----
-
-### 🧪 Testing
-
-**[TESTING.md](./TESTING.md)** - Comprehensive testing guide
-- Unit testing (Jest + React Testing Library)
-- Accessibility testing (jest-axe)
-- Integration testing
-- E2E testing (Playwright)
-- Visual regression testing
-- CI/CD integration
-
----
-
-### 🚀 Advanced Features
-
-**[ADVANCED_FEATURES.md](./ADVANCED_FEATURES.md)** - Production features
-- Bundle Analysis with @next/bundle-analyzer
-- PWA (Progressive Web App) with offline support
-- Internationalization (i18n) - 3 languages
-- Accessibility testing and compliance
-- Advanced configurations
+### ⚙️ [Operations](./operations/)
+Deployment and production operations
+- [Deployment](./operations/deployment.md) - Deployment strategies *(to be created)*
+- [Performance Monitoring](./operations/performance-monitoring.md) - Web Vitals tracking *(to be created)*
+- [Roadmap](./operations/roadmap.md) - Feature roadmap *(to be created)*
 
 ---
 
@@ -116,9 +88,59 @@ pnpm lint
 **Testing:**
 - **Playwright** - End-to-end testing
 
-**Monitoring:**
+---
+
+## 🚀 Quick Links
+
+### For New Developers
+1. [Architecture Overview](./system/architecture.md)
+2. [Testing Guide](./development/testing.md)
+3. [Advanced Features](./development/advanced-features.md)
+
+### For Frontend Engineers
+1. [System Architecture](./system/architecture.md)
+2. [Performance Optimization](./system/performance.md)
+3. [Security Implementation](./system/security.md)
+
+### For DevOps
+1. [Deployment Guide](./operations/deployment.md) *(to be created)*
+2. [Performance Monitoring](./operations/performance-monitoring.md) *(to be created)*
+
+---
+
+## 🛠️ Technology Stack
+
+**Framework & Core:**
+- **Next.js 15** - React framework with App Router, Server Components, Turbopack
+- **React 18** - UI library with concurrent features
+- **TypeScript 5.3** - Static type checking
+
+**State & Data:**
+- **TanStack Query 5** - Server state management
+- **Dexie 4** - IndexedDB wrapper for offline storage
+- **Zod 3** - Schema validation
+
+**UI & Styling:**
+- **Tailwind CSS 3** - Utility-first CSS
+- **Radix UI** - Accessible component primitives
+- **Lucide React** - Icon library
+
+**Performance & Monitoring:**
 - **Consola 3** - Structured logging
 - **Web Vitals** - Performance monitoring
+- **@next/bundle-analyzer** - Bundle analysis
+
+**Advanced Features:**
+- **next-pwa 5** - Progressive Web App
+- **next-intl 4** - Internationalization
+
+---
+
+## 🔗 Related Documentation
+
+- [System Documentation](../../../docs/README.md) - Overall system architecture
+- [Backend Documentation](../../backend/docs/README.md) - API server and database
+- [Packages Documentation](../../../packages/docs/README.md) - Shared types and UI components
 
 ---
 
@@ -569,63 +591,34 @@ export const authApi = {
 
 ---
 
-## 🚀 Deployment
-
-### Build for Production
+## 🚀 Quick Commands
 
 ```bash
-# Build optimized bundle
-pnpm build
+# Development
+pnpm dev                    # Start dev server (http://localhost:3000)
+pnpm dev:turbo              # Start with Turbopack
 
-# Start production server
-pnpm start
+# Testing
+pnpm test                   # Run E2E tests with Playwright
+pnpm test:ui                # Run tests with UI
+
+# Build
+pnpm build                  # Production build
+pnpm start                  # Start production server
+
+# Code Quality
+pnpm lint                   # Lint code
+pnpm format                 # Format code
+
+# Advanced Features
+pnpm analyze                # Bundle analysis (requires ANALYZE=true)
 ```
-
-### Environment Setup
-
-1. Set `NEXT_PUBLIC_API_URL` to production backend
-2. Configure domain in backend CORS settings
-3. Enable HTTPS for cookies to work
-
-### Deployment Platforms
-
-**Vercel** (Recommended):
-```bash
-vercel --prod
-```
-
-**Other Platforms:**
-- Build output is in `.next/` directory
-- Requires Node.js runtime
-- Serve with `next start`
 
 ---
 
-## 🛠️ Development
-
-### Best Practices
-
-1. **Use shared types** from `@notes/types`
-2. **Use shared components** from `@notes/ui-lib`
-3. **Log with Consola**, not `console.log`
-4. **Memoize** expensive computations
-5. **Lazy load** heavy components
-6. **Test** offline functionality
-
-### Code Style
-
-```typescript
-// Use arrow functions
-const MyComponent = () => { };
-
-// Use TypeScript types
-interface Props {
-  title: string;
-  onSave: (data: NoteData) => void;
-}
-
-// Use async/await
-const handleSave = async () => {
+**Last Updated**: December 13, 2025  
+**Frontend Version**: 1.0.0  
+**Documentation Version**: 3.0
   try {
     await notesApi.create(data);
   } catch (error) {
