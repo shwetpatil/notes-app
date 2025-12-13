@@ -3,10 +3,10 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
-import mongoSanitize from "express-mongo-sanitize";
 import dotenv from "dotenv";
 import { authRouter } from "./routes/auth";
 import { notesRouter } from "./routes/notes";
+import templatesRouter from "./routes/templates";
 import { healthRouter } from "./routes/health";
 import { metricsRouter } from "./routes/metrics";
 import { errorHandler } from "./middleware/errorHandler";
@@ -65,14 +65,6 @@ if (process.env.ENABLE_PERFORMANCE_LOGGING === "true" || process.env.ENABLE_METR
   app.use(performanceMonitoring);
 }
 
-// Sanitize user input to prevent NoSQL injection
-app.use(mongoSanitize({
-  replaceWith: '_',
-  onSanitize: ({ req, key }) => {
-    console.warn(`Sanitized request: ${key}`);
-  },
-}));
-
 // Session configuration
 app.use(
   session({
@@ -86,8 +78,6 @@ app.use(
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
-    // Optional: Redis store can be enabled here
-    // store: RedisStore configuration
   })
 );
 
@@ -99,6 +89,7 @@ app.use("/api/health", healthRouter);
 app.use("/api/metrics", metricsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/notes", notesRouter);
+app.use("/api/templates", templatesRouter);
 
 // 404 handler
 app.use((req, res) => {

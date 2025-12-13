@@ -1,49 +1,7 @@
-import { Request, Response, NextFunction } from "express";
 import xss from "xss";
 
 /**
- * Middleware to sanitize user input and prevent XSS attacks
- * Cleans HTML and dangerous characters from request body
- */
-export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
-  if (req.body) {
-    req.body = sanitizeObject(req.body);
-  }
-  next();
-};
-
-/**
- * Recursively sanitize an object
- */
-function sanitizeObject(obj: any): any {
-  if (typeof obj === "string") {
-    return xss(obj, {
-      whiteList: {}, // No HTML tags allowed by default
-      stripIgnoreTag: true,
-      stripIgnoreTagBody: ["script", "style"],
-    });
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(sanitizeObject);
-  }
-
-  if (obj !== null && typeof obj === "object") {
-    const sanitized: any = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        sanitized[key] = sanitizeObject(obj[key]);
-      }
-    }
-    return sanitized;
-  }
-
-  return obj;
-}
-
-/**
- * Specific sanitizer for markdown content
- * Allows safe markdown but strips dangerous HTML
+ * Sanitize markdown content - allows safe HTML tags used in markdown
  */
 export const sanitizeMarkdown = (content: string): string => {
   return xss(content, {
@@ -72,5 +30,72 @@ export const sanitizeMarkdown = (content: string): string => {
     stripIgnoreTag: true,
     stripIgnoreTagBody: ["script", "style", "iframe", "object", "embed"],
     css: false, // No inline styles
+  });
+};
+
+/**
+ * Sanitize HTML/rich text from TipTap editor - whitelist safe tags only
+ */
+export const sanitizeHtml = (content: string): string => {
+  return xss(content, {
+    whiteList: {
+      // Text formatting
+      strong: [],
+      b: [],
+      em: [],
+      i: [],
+      u: [],
+      s: [], // strikethrough
+      code: ["class"],
+      mark: [], // highlight
+      
+      // Headings
+      h1: [],
+      h2: [],
+      h3: [],
+      h4: [],
+      h5: [],
+      h6: [],
+      
+      // Block elements
+      p: [],
+      br: [],
+      div: [],
+      blockquote: [],
+      pre: ["class"],
+      hr: [],
+      
+      // Lists
+      ul: [],
+      ol: ["start"],
+      li: ["data-checked", "data-type"], // For task lists
+      
+      // Links
+      a: ["href", "title", "target", "rel", "class"],
+      
+      // Tables (if needed)
+      table: [],
+      thead: [],
+      tbody: [],
+      tr: [],
+      th: [],
+      td: [],
+      
+      // Other
+      span: ["class"], // For various formatting
+    },
+    stripIgnoreTag: true,
+    stripIgnoreTagBody: ["script", "style", "iframe", "object", "embed", "form", "input", "button"],
+    css: false, // No inline styles to prevent CSS injection
+    onTagAttr: (tag, name, value) => {
+      // Allow data-* attributes for task lists
+      if (name.startsWith('data-')) {
+        return `${name}="${value}"`;
+      }
+      // Allow class attributes with specific prefixes for code highlighting
+      if (name === 'class' && (value.startsWith('language-') || value.startsWith('hljs'))) {
+        return `class="${value}"`;
+      }
+    },
   });
 };

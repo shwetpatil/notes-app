@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import rateLimit from "express-rate-limit";
 import validator from "validator";
 
-const router = Router();
+const router: Router = Router();
 
 // Stricter rate limiting for auth endpoints
 const authLimiter = rateLimit({

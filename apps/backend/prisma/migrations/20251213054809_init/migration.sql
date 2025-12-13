@@ -19,6 +19,7 @@ CREATE TABLE "Note" (
     "id" TEXT NOT NULL,
     "title" VARCHAR(255) NOT NULL,
     "content" TEXT NOT NULL,
+    "contentFormat" VARCHAR(20) NOT NULL DEFAULT 'plaintext',
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "color" VARCHAR(20),
     "isPinned" BOOLEAN NOT NULL DEFAULT false,
@@ -32,6 +33,22 @@ CREATE TABLE "Note" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Note_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Template" (
+    "id" TEXT NOT NULL,
+    "name" VARCHAR(255) NOT NULL,
+    "description" TEXT,
+    "content" TEXT NOT NULL,
+    "contentFormat" VARCHAR(20) NOT NULL DEFAULT 'plaintext',
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "color" VARCHAR(20),
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Template_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -58,5 +75,14 @@ CREATE INDEX "Note_isArchived_idx" ON "Note"("isArchived");
 -- CreateIndex
 CREATE INDEX "Note_isTrashed_idx" ON "Note"("isTrashed");
 
+-- CreateIndex
+CREATE INDEX "Template_userId_idx" ON "Template"("userId");
+
+-- CreateIndex
+CREATE INDEX "Template_updatedAt_idx" ON "Template"("updatedAt");
+
 -- AddForeignKey
 ALTER TABLE "Note" ADD CONSTRAINT "Note_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Template" ADD CONSTRAINT "Template_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

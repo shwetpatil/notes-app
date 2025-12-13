@@ -8,17 +8,18 @@ datasource db {
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  email              String    @unique
+  id                 String     @id @default(cuid())
+  email              String     @unique
   password           String
   name               String
   notes              Note[]
-  preferences        Json?     @default("{\"theme\":\"light\",\"sortBy\":\"updatedAt\",\"viewMode\":\"list\"}")
-  failedLoginAttempts Int      @default(0)
+  templates          Template[]
+  preferences        Json?      @default("{\"theme\":\"light\",\"sortBy\":\"updatedAt\",\"viewMode\":\"list\"}")
+  failedLoginAttempts Int       @default(0)
   accountLockedUntil DateTime?
   lastLoginAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   @@index([email])
 }
@@ -27,6 +28,7 @@ model Note {
   id         String    @id @default(cuid())
   title      String    @db.VarChar(255)
   content    String    @db.Text
+  contentFormat String  @default("plaintext") @db.VarChar(20) // "plaintext" | "markdown" | "html"
   tags       String[]  @default([])
   color      String?   @db.VarChar(20)
   isPinned   Boolean   @default(false)
@@ -46,4 +48,21 @@ model Note {
   @@index([isFavorite])
   @@index([isArchived])
   @@index([isTrashed])
+}
+
+model Template {
+  id            String   @id @default(cuid())
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  content       String   @db.Text
+  contentFormat String   @default("plaintext") @db.VarChar(20) // "plaintext" | "markdown" | "html"
+  tags          String[] @default([])
+  color         String?  @db.VarChar(20)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([updatedAt])
 }

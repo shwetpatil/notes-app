@@ -2,9 +2,9 @@ import { Router, Request, Response } from "express";
 import { createNoteSchema, updateNoteSchema } from "@notes/types";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
-import { sanitizeMarkdown } from "../middleware/sanitize";
+import { sanitizeMarkdown, sanitizeHtml } from "../middleware/sanitize";
 
-const router = Router();
+const router: Router = Router();
 
 // All routes require authentication
 router.use(requireAuth);
@@ -124,11 +124,21 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
-    // Sanitize content to prevent XSS
+    // Sanitize content to prevent XSS based on format
+    let sanitizedContent = parsed.data.content;
+    const contentFormat = parsed.data.contentFormat || "plaintext";
+    
+    if (contentFormat === "html") {
+      sanitizedContent = sanitizeHtml(parsed.data.content);
+    } else if (contentFormat === "markdown") {
+      sanitizedContent = sanitizeMarkdown(parsed.data.content);
+    }
+    // plaintext doesn't need special sanitization, handled by general middleware
+    
     const sanitizedData = {
       ...parsed.data,
       title: parsed.data.title.substring(0, 255), // Enforce max length
-      content: sanitizeMarkdown(parsed.data.content),
+      content: sanitizedContent,
       userId,
     };
 
@@ -175,13 +185,20 @@ router.patch("/:id", async (req: Request, res: Response) => {
       });
     }
 
-    // Sanitize content to prevent XSS
+    // Sanitize content to prevent XSS based on format
     const sanitizedData: any = { ...parsed.data };
     if (sanitizedData.title) {
       sanitizedData.title = sanitizedData.title.substring(0, 255);
     }
     if (sanitizedData.content) {
-      sanitizedData.content = sanitizeMarkdown(sanitizedData.content);
+      const contentFormat = sanitizedData.contentFormat || existingNote.contentFormat || "plaintext";
+      
+      if (contentFormat === "html") {
+        sanitizedData.content = sanitizeHtml(sanitizedData.content);
+      } else if (contentFormat === "markdown") {
+        sanitizedData.content = sanitizeMarkdown(sanitizedData.content);
+      }
+      // plaintext doesn't need special sanitization
     }
 
     const note = await prisma.note.update({

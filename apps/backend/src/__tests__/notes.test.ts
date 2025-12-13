@@ -5,6 +5,7 @@ import {
   testUsers,
   testNotes,
   registerUser,
+  loginUser,
   createNote,
   authenticatedRequest,
   extractUserId,
@@ -166,12 +167,11 @@ describe("Notes API", () => {
       await createNote(bobId, testNotes.work);
 
       // Login as Bob
-      const { cookie: bobCookie } = await request(app)
-        .post("/api/auth/login")
-        .send({
-          email: testUsers.bob.email,
-          password: testUsers.bob.password,
-        });
+      const bobLogin = await loginUser({
+        email: testUsers.bob.email,
+        password: testUsers.bob.password,
+      });
+      const bobCookie = bobLogin.cookie;
 
       const response = await authenticatedRequest(bobCookie).get("/api/notes");
 

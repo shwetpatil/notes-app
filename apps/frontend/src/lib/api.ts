@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Note, CreateNoteInput, UpdateNoteInput, LoginInput, ApiResponse } from "@notes/types";
+import { Note, CreateNoteInput, UpdateNoteInput, LoginInput, ApiResponse, Template, CreateTemplateInput, UpdateTemplateInput } from "@notes/types";
 import { trackAPICall } from "./monitoring";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -157,6 +157,42 @@ export const notesApi = {
 
   permanentDelete: async (id: string) => {
     const response = await apiClient.delete<ApiResponse>(`/api/notes/${id}/permanent`);
+    return response.data;
+  },
+};
+
+// ============================================================================
+// Templates API
+// ============================================================================
+
+export const templatesApi = {
+  getAll: async (params?: { sortBy?: string; order?: string }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params?.order) queryParams.append("order", params.order);
+    
+    const url = `/api/templates${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    const response = await apiClient.get<ApiResponse<Template[]>>(url);
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await apiClient.get<ApiResponse<Template>>(`/api/templates/${id}`);
+    return response.data;
+  },
+
+  create: async (data: CreateTemplateInput) => {
+    const response = await apiClient.post<ApiResponse<Template>>("/api/templates", data);
+    return response.data;
+  },
+
+  update: async (id: string, data: UpdateTemplateInput) => {
+    const response = await apiClient.patch<ApiResponse<Template>>(`/api/templates/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete<ApiResponse>(`/api/templates/${id}`);
     return response.data;
   },
 };

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@notes/ui-lib";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -11,6 +13,7 @@ interface SidebarProps {
 
 export function Sidebar({ user, onLogout, onRefresh }: SidebarProps) {
   const { theme, toggleTheme } = useTheme();
+  const pathname = usePathname();
   
   return (
     <div className="flex w-64 flex-col border-r border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-700">
@@ -23,6 +26,32 @@ export function Sidebar({ user, onLogout, onRefresh }: SidebarProps) {
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Account</h2>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{user.name}</p>
           <p className="text-xs text-gray-500 dark:text-gray-500">{user.email}</p>
+        </div>
+
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Navigation</h2>
+          <div className="space-y-1">
+            <Link
+              href="/notes"
+              className={`block px-3 py-2 rounded-md text-sm ${
+                pathname === "/notes"
+                  ? "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+            >
+              📄 My Notes
+            </Link>
+            <Link
+              href="/templates"
+              className={`block px-3 py-2 rounded-md text-sm ${
+                pathname === "/templates"
+                  ? "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+            >
+              📝 Templates
+            </Link>
+          </div>
         </div>
 
         <div className="space-y-2">

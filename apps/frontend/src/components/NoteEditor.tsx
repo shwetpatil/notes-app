@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { notesApi } from "@/lib/api";
+import { notesApi, templatesApi } from "@/lib/api";
 import { db, markNoteAsDirty } from "@/lib/db";
 import { Button, Input } from "@notes/ui-lib";
 import { ColorPicker } from "./ColorPicker";
-import type { Note } from "@notes/types";
+import { RichTextEditor } from "./RichTextEditor";
+import type { Note, Template } from "@notes/types";
 
 interface NoteEditorProps {
   note: Note | null;
@@ -22,9 +23,16 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [color, setColor] = useState<string | undefined>(undefined);
-  const [isMarkdown, setIsMarkdown] = useState(false);
+  const [contentFormat, setContentFormat] = useState<"plaintext" | "markdown" | "html">("plaintext");
   const [showPreview, setShowPreview] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+
+  // Fetch templates
+  const { data: templatesData } = useQuery({
+    queryKey: ["templates"],
+    queryFn: () => templatesApi.getAll(),
+  });
 
   useEffect(() => {
     if (note) {
@@ -32,14 +40,21 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
       setContent(note.content);
       setTags(note.tags || []);
       setColor(note.color);
-      setIsMarkdown(note.isMarkdown || false);
+      // Support both old isMarkdown field and new contentFormat field
+      if (note.contentFormat) {
+        setContentFormat(note.contentFormat as "plaintext" | "markdown" | "html");
+      } else if (note.isMarkdown) {
+        setContentFormat("markdown");
+      } else {
+        setContentFormat("plaintext");
+      }
       setHasChanges(false);
     } else {
       setTitle("");
       setContent("");
       setTags([]);
       setColor(undefined);
-      setIsMarkdown(false);
+      setContentFormat("plaintext");
       setHasChanges(false);
     }
   }, [note]);
@@ -148,14 +163,14 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
     if (note) {
       updateMutation.mutate({
         id: note.id,
-        data: { title, content, tags, isMarkdown, color },
+        data: { title, content, tags, contentFormat, color },
       });
     } else {
       createMutation.mutate({ 
         title, 
         content, 
         tags, 
-        isMarkdown,
+        contentFormat,
         isPinned: false,
         isFavorite: false,
         isArchived: false,
@@ -220,22 +235,67 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
     setHasChanges(true);
   };
 
+  const handleApplyTemplate = (template: Template) => {
+    setTitle(template.name);
+    setContent(template.content);
+    setContentFormat(template.contentFormat);
+    setTags(template.tags);
+    setColor(template.color);
+    setShowTemplateSelector(false);
+    setHasChanges(true);
+  };
+
   const isEmptyNewNote = !note && title === "" && content === "";
+  const templates = templatesData?.data || [];
 
   return (
     <div className="flex flex-1 flex-col bg-white dark:bg-gray-900">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <Input
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              handleChange();
-            }}
-            placeholder="Note title"
-            className="text-xl font-semibold"
-          />
+          <div className="flex-1 flex items-center gap-2">
+            <Input
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                handleChange();
+              }}
+              placeholder="Note title"
+              className="text-xl font-semibold flex-1"
+            />
+            {!note && templates.length > 0 && (
+              <div className="relative">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+                  title="Use template"
+                >
+                  📝 Template
+                </Button>
+                {showTemplateSelector && (
+                  <div className="absolute top-full right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10 max-h-64 overflow-y-auto">
+                    {templates.map((template) => (
+                      <button
+                        key={template.id}
+                        onClick={() => handleApplyTemplate(template)}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                      >
+                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                          {template.name}
+                        </div>
+                        {template.description && (
+                          <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
+                            {template.description}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="ml-4 flex gap-2">
             {note && note.isTrashed && (
               <>
@@ -362,21 +422,42 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
           )}
         </div>
 
-        {/* Markdown Toggle */}
+        {/* Content Format Toggle */}
         <div className="mt-3 flex items-center gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={isMarkdown}
-              onChange={(e) => {
-                setIsMarkdown(e.target.checked);
+          <label className="text-sm text-gray-700 font-medium">Format:</label>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={contentFormat === "plaintext" ? "primary" : "secondary"}
+              onClick={() => {
+                setContentFormat("plaintext");
                 handleChange();
               }}
-              className="rounded"
-            />
-            <span className="text-sm text-gray-700">Markdown mode</span>
-          </label>
-          {isMarkdown && (
+            >
+              Plain Text
+            </Button>
+            <Button
+              size="sm"
+              variant={contentFormat === "markdown" ? "primary" : "secondary"}
+              onClick={() => {
+                setContentFormat("markdown");
+                handleChange();
+              }}
+            >
+              Markdown
+            </Button>
+            <Button
+              size="sm"
+              variant={contentFormat === "html" ? "primary" : "secondary"}
+              onClick={() => {
+                setContentFormat("html");
+                handleChange();
+              }}
+            >
+              Rich Text
+            </Button>
+          </div>
+          {contentFormat === "markdown" && (
             <Button
               size="sm"
               variant="secondary"
@@ -390,8 +471,17 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
 
       {/* Content Editor */}
       <div className="flex-1 overflow-y-auto p-4">
-        {isMarkdown && showPreview ? (
-          <div className="prose max-w-none">
+        {contentFormat === "html" ? (
+          <RichTextEditor
+            content={content}
+            onChange={(html) => {
+              setContent(html);
+              handleChange();
+            }}
+            placeholder="Start typing..."
+          />
+        ) : contentFormat === "markdown" && showPreview ? (
+          <div className="prose max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         ) : (
@@ -402,7 +492,7 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
               handleChange();
             }}
             placeholder="Start typing..."
-            className="h-full w-full resize-none border-none p-0 focus:outline-none focus:ring-0"
+            className="h-full w-full resize-none border-none p-0 focus:outline-none focus:ring-0 dark:bg-gray-900 dark:text-gray-100"
           />
         )}
       </div>

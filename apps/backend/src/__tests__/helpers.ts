@@ -78,20 +78,20 @@ export async function createNote(userId: string, noteData: any) {
 export async function registerUser(userData: {
   email: string;
   password: string;
-}) {
+}): Promise<{ response: request.Response; cookie: string[] }> {
   const response = await request(app).post("/api/auth/register").send(userData);
 
-  const cookie = response.headers["set-cookie"];
+  const cookie = response.headers["set-cookie"] as unknown as string[];
   return { response, cookie };
 }
 
 /**
  * Login a user via API and return session cookie
  */
-export async function loginUser(userData: { email: string; password: string }) {
+export async function loginUser(userData: { email: string; password: string }): Promise<{ response: request.Response; cookie: string[] }> {
   const response = await request(app).post("/api/auth/login").send(userData);
 
-  const cookie = response.headers["set-cookie"];
+  const cookie = response.headers["set-cookie"] as unknown as string[];
   return { response, cookie };
 }
 
