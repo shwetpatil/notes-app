@@ -18,13 +18,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@notes/types", "@notes/ui-lib"],
   
-  // i18n configuration
-  // Uncomment when locales are added
-  // i18n: {
-  //   locales: ['en', 'es', 'fr'],
-  //   defaultLocale: 'en',
-  // },
-  
   // Performance optimizations
   compress: true,
   

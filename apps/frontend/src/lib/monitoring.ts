@@ -234,15 +234,23 @@ export function trackPerformance(name: string, startMark?: string) {
  *   // ... submit logic
  * };
  * 
- * @todo Integrate with analytics service (Google Analytics, Mixpanel, etc.) in production
+ * Integrated with analytics service for production monitoring
  */
 export function trackUserAction(action: string, target?: string) {
   if (process.env.NODE_ENV === 'development') {
     logger.debug({ action, target }, '👆 User action');
   }
 
-  // In production, send to analytics service
-  // Example: analytics.track(action, { target });
+  // Send to analytics service
+  if (typeof window !== 'undefined') {
+    import('./analytics').then(({ trackEvent }) => {
+      trackEvent({
+        category: 'User Action',
+        action,
+        label: target,
+      });
+    });
+  }
 }
 
 /**

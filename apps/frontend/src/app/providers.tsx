@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState, ReactNode } from "react";
+import { WebSocketProvider } from "@/context/WebSocketContext";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -19,8 +20,10 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      <WebSocketProvider enabled={process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_ENABLE_WS === 'true'}>
+        {children}
+        <ReactQueryDevtools initialIsOpen={false} />
+      </WebSocketProvider>
     </QueryClientProvider>
   );
 }
