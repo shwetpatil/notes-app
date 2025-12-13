@@ -5,14 +5,11 @@
   "description": "Full-stack notes application with Next.js and Express",
   "scripts": {
     "dev": "concurrently \"pnpm --filter @notes/frontend dev\" \"pnpm --filter @notes/backend dev\"",
-    "dev:frontend": "pnpm --filter @notes/frontend dev",
-    "dev:backend": "pnpm --filter @notes/backend dev",
+    "dev:fe": "pnpm --filter @notes/frontend dev",
+    "dev:be": "pnpm --filter @notes/backend dev",
     "build": "pnpm --filter @notes/types build && pnpm --filter @notes/ui-lib build && pnpm --filter @notes/backend build && pnpm --filter @notes/frontend build",
-    "build:frontend": "pnpm --filter @notes/frontend build",
-    "build:backend": "pnpm --filter @notes/backend build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
