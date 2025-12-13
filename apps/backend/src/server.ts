@@ -139,4 +139,6 @@ if (!process.env.CLUSTER_MODE || require("cluster").isWorker) {
   }
 }
 
+// Export app for testing
+export { app };
 export default app;

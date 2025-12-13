@@ -48,6 +48,13 @@ pnpm dev
 
 ⚡ **[PERFORMANCE.md](./PERFORMANCE.md)** - Performance optimization
 - Database indexing & query optimization
+
+🧪 **[TESTING.md](./TESTING.md)** - Testing guide
+- Test setup & configuration
+- Running tests & coverage
+- Writing tests & best practices
+- Test helpers & utilities
+- Troubleshooting
 - Cluster mode (multi-process)
 - Memory management
 - Monitoring & metrics
