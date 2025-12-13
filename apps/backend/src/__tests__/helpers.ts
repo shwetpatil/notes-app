@@ -1,6 +1,6 @@
 import request from "supertest";
 import { app } from "../server";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 import bcrypt from "bcrypt";
 
 /**

@@ -3,7 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
-import dotenv from "dotenv";
 import { authRouter } from "./routes/auth";
 import { notesRouter } from "./routes/notes";
 import templatesRouter from "./routes/templates";
@@ -17,28 +16,13 @@ import { performanceMonitoring } from "./middleware/monitoring";
 import https from "https";
 import http from "http";
 import fs from "fs";
-
-dotenv.config();
-
-// ============================================================================
-// Configuration
-// ============================================================================
-const CONFIG = {
-  PORT: parseInt(process.env.BACKEND_PORT || "3001", 10),
-  NODE_ENV: process.env.NODE_ENV || "development",
-  CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:3000",
-  SESSION_SECRET: process.env.SESSION_SECRET || "your-secret-key-change-this",
-  ENABLE_HTTPS: process.env.ENABLE_HTTPS === "true",
-  SSL_KEY_PATH: process.env.SSL_KEY_PATH,
-  SSL_CERT_PATH: process.env.SSL_CERT_PATH,
-  BODY_LIMIT: process.env.BODY_PARSER_LIMIT || "10mb",
-  RATE_LIMIT: {
-    WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
-    MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100", 10),
-  },
-  CLUSTER_MODE: process.env.CLUSTER_MODE === "true",
-  ENABLE_PERFORMANCE: process.env.ENABLE_PERFORMANCE_LOGGING === "true" || process.env.ENABLE_METRICS_COLLECTION === "true",
-} as const;
+import {
+  serverConfig,
+  securityConfig,
+  clusterConfig,
+  monitoringConfig,
+  appConfig,
+} from "./config";
 
 const app: Express = express();
 
@@ -66,15 +50,15 @@ app.use(helmet({
 // CORS
 app.use(
   cors({
-    origin: CONFIG.CORS_ORIGIN,
+    origin: serverConfig.corsOrigin,
     credentials: true,
   })
 );
 
 // General rate limiting
 const limiter = rateLimit({
-  windowMs: CONFIG.RATE_LIMIT.WINDOW_MS,
-  max: CONFIG.RATE_LIMIT.MAX_REQUESTS,
+  windowMs: securityConfig.rateLimit.windowMs,
+  max: securityConfig.rateLimit.maxRequests,
   message: "Too many requests, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
@@ -82,23 +66,23 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Body parsing with limits
-app.use(express.json({ limit: CONFIG.BODY_LIMIT }));
-app.use(express.urlencoded({ extended: true, limit: CONFIG.BODY_LIMIT }));
+app.use(express.json({ limit: serverConfig.bodyParserLimit }));
+app.use(express.urlencoded({ extended: true, limit: serverConfig.bodyParserLimit }));
 
 // Performance monitoring (must be after body parsers)
-if (CONFIG.ENABLE_PERFORMANCE) {
+if (monitoringConfig.enabled) {
   app.use(performanceMonitoring);
 }
 
 // Session configuration
 app.use(
   session({
-    secret: CONFIG.SESSION_SECRET,
+    secret: securityConfig.sessionSecret,
     resave: false,
     saveUninitialized: false,
     name: 'sessionId',
     cookie: {
-      secure: CONFIG.NODE_ENV === "production" || CONFIG.ENABLE_HTTPS,
+      secure: appConfig.isProduction || serverConfig.https.enabled,
       httpOnly: true,
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -135,22 +119,22 @@ app.use(errorHandler);
 // ============================================================================
 
 // Only start server if not in cluster mode or if we're a worker
-if (!CONFIG.CLUSTER_MODE || require("cluster").isWorker) {
+if (!clusterConfig.enabled || require("cluster").isWorker) {
   let server: http.Server | https.Server;
 
-  if (CONFIG.ENABLE_HTTPS && CONFIG.SSL_KEY_PATH && CONFIG.SSL_CERT_PATH) {
+  if (serverConfig.https.enabled && serverConfig.https.keyPath && serverConfig.https.certPath) {
     // HTTPS Server
     try {
       const options = {
-        key: fs.readFileSync(CONFIG.SSL_KEY_PATH),
-        cert: fs.readFileSync(CONFIG.SSL_CERT_PATH),
+        key: fs.readFileSync(serverConfig.https.keyPath),
+        cert: fs.readFileSync(serverConfig.https.certPath),
       };
       server = https.createServer(options, app);
-      server.listen(CONFIG.PORT, () => {
+      server.listen(serverConfig.port, () => {
         const pid = process.pid;
-        console.log(`🔒 HTTPS Backend server running on https://localhost:${CONFIG.PORT} (PID: ${pid})`);
-        console.log(`📝 Environment: ${CONFIG.NODE_ENV}`);
-        if (CONFIG.CLUSTER_MODE) {
+        console.log(`🔒 HTTPS Backend server running on https://localhost:${serverConfig.port} (PID: ${pid})`);
+        console.log(`📝 Environment: ${appConfig.nodeEnv}`);
+        if (clusterConfig.enabled) {
           console.log(`👷 Worker process ${pid} ready`);
         }
       });
@@ -158,25 +142,25 @@ if (!CONFIG.CLUSTER_MODE || require("cluster").isWorker) {
       console.error("❌ Failed to start HTTPS server:", error);
       console.log("⚠️  Falling back to HTTP...");
       server = http.createServer(app);
-      server.listen(CONFIG.PORT, () => {
-        console.log(`⚡ HTTP Backend server running on http://localhost:${CONFIG.PORT}`);
+      server.listen(serverConfig.port, () => {
+        console.log(`⚡ HTTP Backend server running on http://localhost:${serverConfig.port}`);
       });
     }
   } else {
     // HTTP Server
     server = http.createServer(app);
-    server.listen(CONFIG.PORT, () => {
+    server.listen(serverConfig.port, () => {
       const pid = process.pid;
-      console.log(`⚡ Backend server running on http://localhost:${CONFIG.PORT} (PID: ${pid})`);
-      console.log(`📝 Environment: ${CONFIG.NODE_ENV}`);
-      if (CONFIG.CLUSTER_MODE) {
+      console.log(`⚡ Backend server running on http://localhost:${serverConfig.port} (PID: ${pid})`);
+      console.log(`📝 Environment: ${appConfig.nodeEnv}`);
+      if (clusterConfig.enabled) {
         console.log(`👷 Worker process ${pid} ready`);
       }
     });
   }
 
   // Graceful shutdown
-  if (!CONFIG.CLUSTER_MODE) {
+  if (!clusterConfig.enabled) {
     const gracefulShutdown = () => {
       console.log("\n🛑 Received shutdown signal, closing server gracefully...");
       server.close(() => {

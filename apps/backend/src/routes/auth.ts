@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { loginSchema } from "@notes/types";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 import bcrypt from "bcrypt";
 import rateLimit from "express-rate-limit";
 import validator from "validator";

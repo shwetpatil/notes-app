@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 import { requireAuth } from "../middleware/auth";
 import puppeteer from "puppeteer";
 import MarkdownIt from "markdown-it";

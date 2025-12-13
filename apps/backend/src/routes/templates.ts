@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { createTemplateSchema, updateTemplateSchema } from "@notes/types";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 import { requireAuth } from "../middleware/auth";
 import { sanitizeMarkdown, sanitizeHtml } from "../middleware/sanitize";
 

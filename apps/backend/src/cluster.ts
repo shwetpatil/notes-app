@@ -1,12 +1,7 @@
 import cluster from "cluster";
-import os from "os";
-import dotenv from "dotenv";
+import { clusterConfig } from "./config";
 
-dotenv.config();
-
-const numCPUs = os.cpus().length;
-const MAX_WORKERS = parseInt(process.env.MAX_WORKERS || String(numCPUs), 10);
-const workers = Math.min(MAX_WORKERS, numCPUs);
+const workers = Math.min(clusterConfig.maxWorkers, clusterConfig.numCPUs);
 
 /**
  * Start the application in cluster mode to utilize all available CPU cores
@@ -14,7 +9,7 @@ const workers = Math.min(MAX_WORKERS, numCPUs);
  */
 export function startCluster() {
   if (cluster.isPrimary) {
-    console.log(`🚀 Starting cluster with ${workers} workers (${numCPUs} CPUs available)`);
+    console.log(`🚀 Starting cluster with ${workers} workers (${clusterConfig.numCPUs} CPUs available)`);
     console.log(`📊 Master process ${process.pid} is running`);
 
     // Track worker restarts to prevent restart loops
@@ -90,7 +85,7 @@ export function startCluster() {
     process.on("SIGINT", shutdown);
 
     // Monitor memory usage
-    if (process.env.ENABLE_MEMORY_MONITORING === "true") {
+    if (clusterConfig.memory.enabled) {
       setInterval(() => {
         const used = process.memoryUsage();
         console.log(`📊 Master Memory Usage: RSS=${Math.round(used.rss / 1024 / 1024)}MB, Heap=${Math.round(used.heapUsed / 1024 / 1024)}MB`);
@@ -112,7 +107,7 @@ export function startCluster() {
     });
 
     // Monitor worker memory
-    if (process.env.ENABLE_MEMORY_MONITORING === "true") {
+    if (clusterConfig.memory.enabled) {
       setInterval(() => {
         const used = process.memoryUsage();
         const heapUsedMB = Math.round(used.heapUsed / 1024 / 1024);
@@ -121,9 +116,8 @@ export function startCluster() {
         console.log(`📊 Worker ${process.pid} Memory: RSS=${rssMB}MB, Heap=${heapUsedMB}MB`);
         
         // Alert if memory exceeds threshold
-        const memoryThreshold = parseInt(process.env.MEMORY_THRESHOLD_MB || "512", 10);
-        if (rssMB > memoryThreshold) {
-          console.warn(`⚠️  Worker ${process.pid} memory usage (${rssMB}MB) exceeds threshold (${memoryThreshold}MB)`);
+        if (rssMB > clusterConfig.memory.thresholdMB) {
+          console.warn(`⚠️  Worker ${process.pid} memory usage (${rssMB}MB) exceeds threshold (${clusterConfig.memory.thresholdMB}MB)`);
         }
       }, 60000);
     }

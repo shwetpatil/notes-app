@@ -1,5 +1,5 @@
 import { beforeAll, afterAll, beforeEach } from "vitest";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 
 // Setup before all tests
 beforeAll(async () => {

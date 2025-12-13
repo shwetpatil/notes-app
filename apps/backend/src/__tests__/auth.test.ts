@@ -9,7 +9,7 @@ import {
   wait,
   randomEmail,
 } from "./helpers";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 
 describe("Authentication API", () => {
   describe("POST /api/auth/register", () => {

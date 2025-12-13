@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { createFolderSchema, updateFolderSchema } from "@notes/types";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 import { requireAuth } from "../middleware/auth";
 
 const router: Router = Router();

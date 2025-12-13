@@ -10,7 +10,7 @@ import {
   authenticatedRequest,
   extractUserId,
 } from "./helpers";
-import { prisma } from "../lib/prisma";
+import { prisma } from "../config";
 
 describe("Notes API", () => {
   describe("POST /api/notes", () => {
