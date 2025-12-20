@@ -558,13 +558,180 @@ All other tags stripped or escaped.
 
 ## WebSocket Support
 
-**Status**: Not yet implemented
+**Status**: ✅ Fully Implemented
 
-**Planned features:**
-- Real-time note updates
-- Collaborative editing
-- Presence indicators
-- Live sync across devices
+**Available features:**
+- ✅ Real-time note updates
+- ✅ Collaborative editing with room-based synchronization
+- ✅ User presence indicators
+- ✅ Live sync across devices
+- ✅ Session-based authentication
+- ✅ Event-driven architecture
+
+### Connection
+
+**Endpoint**: `ws://localhost:3001` or `wss://your-domain.com` (production)
+
+**Client library**: socket.io-client
+
+**Authentication**: Session cookies (established via login/register)
+
+### Events
+
+#### Client → Server
+
+**`join-note`** - Join a note room for collaboration
+```typescript
+socket.emit('join-note', { noteId: string, userId: string });
+```
+
+**`leave-note`** - Leave a note room
+```typescript
+socket.emit('leave-note', { noteId: string, userId: string });
+```
+
+**`note-update`** - Broadcast note changes to other users
+```typescript
+socket.emit('note-update', {
+  noteId: string,
+  userId: string,
+  changes: {
+    title?: string,
+    content?: string,
+    tags?: string[]
+  }
+});
+```
+
+**`cursor-position`** - Share cursor position in collaborative editing
+```typescript
+socket.emit('cursor-position', {
+  noteId: string,
+  userId: string,
+  position: number
+});
+```
+
+**`presence`** - Update user presence status
+```typescript
+socket.emit('presence', {
+  noteId: string,
+  userId: string,
+  status: 'active' | 'idle' | 'away'
+});
+```
+
+#### Server → Client
+
+**`user-joined`** - Notified when user joins note room
+```typescript
+socket.on('user-joined', (data: { noteId: string, userId: string, userName: string }) => {
+  // Handle user joined
+});
+```
+
+**`user-left`** - Notified when user leaves note room
+```typescript
+socket.on('user-left', (data: { noteId: string, userId: string }) => {
+  // Handle user left
+});
+```
+
+**`note-updated`** - Receive real-time note updates
+```typescript
+socket.on('note-updated', (data: {
+  noteId: string,
+  userId: string,
+  changes: object,
+  timestamp: number
+}) => {
+  // Apply changes to note
+});
+```
+
+**`cursor-move`** - Receive cursor position updates
+```typescript
+socket.on('cursor-move', (data: {
+  noteId: string,
+  userId: string,
+  position: number
+}) => {
+  // Update cursor indicator
+});
+```
+
+**`presence-update`** - Receive presence status updates
+```typescript
+socket.on('presence-update', (data: {
+  noteId: string,
+  userId: string,
+  status: string
+}) => {
+  // Update presence indicator
+});
+```
+
+**`notification`** - Receive general notifications
+```typescript
+socket.on('notification', (data: {
+  type: string,
+  message: string,
+  data?: object
+}) => {
+  // Display notification
+});
+```
+
+### React Integration Example
+
+```typescript
+import { useWebSocket } from '@/context/WebSocketContext';
+import { useNoteCollaboration } from '@/hooks/useNoteCollaboration';
+
+function NoteEditor({ noteId, userId }) {
+  const { isConnected } = useWebSocket();
+  
+  const {
+    broadcastUpdate,
+    broadcastPresence
+  } = useNoteCollaboration({
+    noteId,
+    enabled: isConnected,
+    onUserJoined: (data) => console.log('User joined:', data),
+    onUserLeft: (data) => console.log('User left:', data),
+    onNoteUpdated: (data) => {
+      // Apply changes to local state
+      updateLocalNote(data.changes);
+    }
+  });
+
+  const handleChange = (changes) => {
+    // Update local state immediately
+    setNote(changes);
+    
+    // Broadcast to other users
+    broadcastUpdate(changes);
+  };
+
+  return <div>...</div>;
+}
+```
+
+### Configuration
+
+**Environment Variables**:
+```bash
+# Backend
+CORS_ORIGIN=http://localhost:3000
+WEBSOCKET_ENABLED=true
+
+# Frontend
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_ENABLE_WS=true
+```
+
+**Backend Setup**: See [websocket.ts](../src/config/websocket.ts)  
+**Frontend Setup**: See [WebSocketContext.tsx](../../frontend/src/context/WebSocketContext.tsx)
 
 ---
 

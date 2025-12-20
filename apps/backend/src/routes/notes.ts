@@ -132,7 +132,7 @@ router.get("/", async (req: Request, res: Response) => {
       data: notes,
     });
   } catch (error) {
-    console.error("Get notes error:", error);
+    logger.error({ error }, 'Get notes error');
     res.status(500).json({
       success: false,
       error: "Failed to fetch notes",
@@ -193,7 +193,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Get note error:", error);
+    logger.error({ error }, 'Get note error');
     res.status(500).json({
       success: false,
       error: "Failed to fetch note",
@@ -281,7 +281,7 @@ router.post("/", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Create note error:", error);
+    logger.error({ error }, 'Create note error');
     res.status(500).json({
       success: false,
       error: "Failed to create note",
@@ -400,7 +400,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Update note error:", error);
+    logger.error({ error }, 'Update note error');
     res.status(500).json({
       success: false,
       error: "Failed to update note",
@@ -456,7 +456,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
       message: "Note deleted successfully",
     });
   } catch (error) {
-    console.error("Delete note error:", error);
+    logger.error({ error }, 'Delete note error');
     res.status(500).json({
       success: false,
       error: "Failed to delete note",
@@ -491,7 +491,7 @@ router.patch("/:id/pin", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Pin note error:", error);
+    logger.error({ error }, 'Pin note error');
     res.status(500).json({
       success: false,
       error: "Failed to pin note",
@@ -526,7 +526,7 @@ router.patch("/:id/archive", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Archive note error:", error);
+    logger.error({ error }, 'Archive note error');
     res.status(500).json({
       success: false,
       error: "Failed to archive note",
@@ -561,7 +561,7 @@ router.patch("/:id/favorite", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Favorite note error:", error);
+    logger.error({ error }, 'Favorite note error');
     res.status(500).json({
       success: false,
       error: "Failed to favorite note",
@@ -599,7 +599,7 @@ router.patch("/:id/trash", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Trash note error:", error);
+    logger.error({ error }, 'Trash note error');
     res.status(500).json({
       success: false,
       error: "Failed to trash note",
@@ -637,7 +637,7 @@ router.patch("/:id/restore", async (req: Request, res: Response) => {
       data: note,
     });
   } catch (error) {
-    console.error("Restore note error:", error);
+    logger.error({ error }, 'Restore note error');
     res.status(500).json({
       success: false,
       error: "Failed to restore note",
@@ -671,7 +671,7 @@ router.delete("/:id/permanent", async (req: Request, res: Response) => {
       message: "Note permanently deleted",
     });
   } catch (error) {
-    console.error("Permanent delete error:", error);
+    logger.error({ error }, 'Permanent delete error');
     res.status(500).json({
       success: false,
       error: "Failed to delete note",
@@ -742,7 +742,7 @@ router.get("/:id/versions", async (req: Request, res: Response) => {
       data: versions,
     });
   } catch (error) {
-    console.error("Get versions error:", error);
+    logger.error({ error }, 'Get versions error');
     res.status(500).json({
       success: false,
       error: "Failed to fetch versions",
@@ -843,7 +843,7 @@ router.post("/:id/restore/:versionId", async (req: Request, res: Response) => {
       message: `Restored to version ${version.version}`,
     });
   } catch (error) {
-    console.error("Restore version error:", error);
+    logger.error({ error }, 'Restore version error');
     res.status(500).json({
       success: false,
       error: "Failed to restore version",
@@ -926,7 +926,7 @@ router.post("/suggest-tags", async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("Smart tags error:", error);
+    logger.error({ error }, 'Smart tags error');
     res.status(500).json({
       success: false,
       error: "Failed to generate tag suggestions",

@@ -78,7 +78,7 @@ router.get("/", async (req: Request, res: Response) => {
       data: folders,
     });
   } catch (error) {
-    console.error("Error fetching folders:", error);
+    logger.error({ error }, 'Error fetching folders');
     res.status(500).json({
       success: false,
       error: "Failed to fetch folders",
@@ -178,7 +178,7 @@ router.post("/", async (req: Request, res: Response) => {
       data: folder,
     });
   } catch (error) {
-    console.error("Error creating folder:", error);
+    logger.error({ error }, 'Error creating folder');
     res.status(500).json({
       success: false,
       error: "Failed to create folder",
@@ -268,7 +268,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       data: folder,
     });
   } catch (error) {
-    console.error("Error fetching folder:", error);
+    logger.error({ error }, 'Error fetching folder');
     res.status(500).json({
       success: false,
       error: "Failed to fetch folder",
@@ -349,7 +349,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
       data: folder,
     });
   } catch (error) {
-    console.error("Error updating folder:", error);
+    logger.error({ error }, 'Error updating folder');
     res.status(500).json({
       success: false,
       error: "Failed to update folder",
@@ -425,7 +425,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
       message: "Folder deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting folder:", error);
+    logger.error({ error }, 'Error deleting folder');
     res.status(500).json({
       success: false,
       error: "Failed to delete folder",

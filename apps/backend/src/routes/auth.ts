@@ -129,7 +129,7 @@ router.post("/register", authRateLimiter, async (req: Request, res: Response) =>
       },
     });
   } catch (error) {
-    console.error("Register error:", error);
+    logger.error({ error }, 'Register error');
     res.status(500).json({
       success: false,
       error: "Failed to register",
@@ -273,7 +273,7 @@ router.post("/login", authRateLimiter, async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
+    logger.error({ error }, 'Login error');
     res.status(500).json({
       success: false,
       error: "Authentication failed",

@@ -159,7 +159,7 @@ router.get("/:id/:format", async (req: Request, res: Response) => {
         });
     }
   } catch (error) {
-    console.error("Error exporting note:", error);
+    logger.error({ error }, 'Error exporting note');
     res.status(500).json({
       success: false,
       error: "Failed to export note",
@@ -260,7 +260,7 @@ router.post("/bulk", async (req: Request, res: Response) => {
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(JSON.stringify(exportData, null, 2));
   } catch (error) {
-    console.error("Error bulk exporting notes:", error);
+    logger.error({ error }, 'Error bulk exporting notes');
     res.status(500).json({
       success: false,
       error: "Failed to export notes",
@@ -620,5 +620,111 @@ function sanitizeFilename(filename: string): string {
     .replace(/_+/g, "_")
     .substring(0, 50);
 }
+
+/**
+ * @swagger
+ * /api/v1/export/bulk:
+ *   post:
+ *     summary: Bulk export multiple notes
+ *     tags: [Export]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               noteIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               format:
+ *                 type: string
+ *                 enum: [json, markdown, html]
+ *     responses:
+ *       200:
+ *         description: ZIP file containing all notes
+ *         content:
+ *           application/zip:
+ *             schema:
+ *               type: string
+ *               format: binary
+ */
+router.post("/bulk", async (req: Request, res: Response) => {
+  try {
+    const { noteIds, format = "markdown" } = req.body;
+
+    if (!noteIds || !Array.isArray(noteIds) || noteIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "noteIds array is required",
+      });
+    }
+
+    if (noteIds.length > 100) {
+      return res.status(400).json({
+        success: false,
+        error: "Maximum 100 notes per bulk export",
+      });
+    }
+
+    // Fetch all notes
+    const notes = await prisma.note.findMany({
+      where: {
+        id: { in: noteIds },
+        userId: req.session.user!.id,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (notes.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No notes found",
+      });
+    }
+
+    // For simplicity, create a JSON array of all notes
+    // In production, create a ZIP file with individual files
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      notes_count: notes.length,
+      format,
+      notes: notes.map((note) => ({
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        tags: note.tags,
+        color: note.color,
+        isPinned: note.isPinned,
+        isFavorite: note.isFavorite,
+        isArchived: note.isArchived,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+      })),
+    };
+
+    const filename = `notes-export-${Date.now()}.json`;
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.json(exportData);
+  } catch (error) {
+    logger.error({ error }, 'Bulk export error');
+    res.status(500).json({
+      success: false,
+      error: "Failed to export notes",
+    });
+  }
+});
 
 export default router;

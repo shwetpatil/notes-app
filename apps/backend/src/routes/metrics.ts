@@ -77,11 +77,9 @@ router.post("/vitals", (req: Request, res: Response) => {
   const { name, value, rating, id, navigationType } = req.body;
 
   if (process.env.ENABLE_WEB_VITALS_LOGGING === "true") {
-    const color = rating === "good" ? "\x1b[32m" : rating === "needs-improvement" ? "\x1b[33m" : "\x1b[31m";
-    const reset = "\x1b[0m";
-    
-    console.log(
-      `${color}🎯 [Web Vital]${reset} ${name}: ${Math.round(value)}ms (${rating}) - ${navigationType || "navigation"}`
+    logger.info(
+      { metric: name, value: Math.round(value), rating, navigationType: navigationType || "navigation" },
+      `🎯 Web Vital: ${name}`
     );
   }
 

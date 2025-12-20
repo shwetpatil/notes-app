@@ -90,7 +90,7 @@ router.post("/", async (req: Request, res: Response) => {
       message: `Note shared with ${sharedWith}`,
     });
   } catch (error: any) {
-    console.error("Error creating share:", error);
+    logger.error({ error }, 'Error creating share');
 
     if (error.code === "P2002") {
       return res.status(400).json({

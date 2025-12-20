@@ -67,7 +67,7 @@ router.get("/", async (req: Request, res: Response) => {
       data: templates,
     });
   } catch (error) {
-    console.error("Get templates error:", error);
+    logger.error({ error }, 'Get templates error');
     res.status(500).json({
       success: false,
       error: "Failed to fetch templates",
@@ -118,7 +118,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       data: template,
     });
   } catch (error) {
-    console.error("Get template error:", error);
+    logger.error({ error }, 'Get template error');
     res.status(500).json({
       success: false,
       error: "Failed to fetch template",
@@ -196,7 +196,7 @@ router.post("/", async (req: Request, res: Response) => {
       data: template,
     });
   } catch (error) {
-    console.error("Create template error:", error);
+    logger.error({ error }, 'Create template error');
     res.status(500).json({
       success: false,
       error: "Failed to create template",
@@ -255,7 +255,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
       data: template,
     });
   } catch (error) {
-    console.error("Update template error:", error);
+    logger.error({ error }, 'Update template error');
     res.status(500).json({
       success: false,
       error: "Failed to update template",
@@ -290,7 +290,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
       message: "Template deleted successfully",
     });
   } catch (error) {
-    console.error("Delete template error:", error);
+    logger.error({ error }, 'Delete template error');
     res.status(500).json({
       success: false,
       error: "Failed to delete template",
